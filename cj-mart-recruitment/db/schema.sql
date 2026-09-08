@@ -51,10 +51,25 @@ CREATE TABLE IF NOT EXISTS faq_rules (
 );
 
 -- key/value store for small pieces of site config that admins edit
--- (PDPA policy text + consent label today; room to add more later
--- without a migration).
+-- (PDPA policy text + consent label, company overview text, and social
+-- media links today; room to add more later without a migration).
 CREATE TABLE IF NOT EXISTS settings (
   key         TEXT PRIMARY KEY,
   value       TEXT NOT NULL,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- HR staff to show on the "ติดต่อเจ้าหน้าที่" page — different HR staff
+-- often cover different positions/departments, so each row can note which
+-- ones this person handles.
+CREATE TABLE IF NOT EXISTS hr_contacts (
+  id             TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  coverage       TEXT DEFAULT '',
+  phone          TEXT DEFAULT '',
+  email          TEXT DEFAULT '',
+  line_id        TEXT DEFAULT '',
+  display_order  INTEGER NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
