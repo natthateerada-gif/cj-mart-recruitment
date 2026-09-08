@@ -12,6 +12,7 @@ services:
     name: cjmart-recruitment
     runtime: node
     plan: free
+    rootDir: cj-mart-recruitment
     buildCommand: npm install && npm run migrate
     startCommand: npm start
     envVars:
