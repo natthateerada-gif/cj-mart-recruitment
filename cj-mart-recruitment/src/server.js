@@ -10,6 +10,8 @@ const faqRulesRouter = require('./routes/faqRules');
 const pdpaRouter = require('./routes/pdpa');
 const adminAuthRouter = require('./routes/adminAuth');
 const integrationRouter = require('./routes/integration');
+const siteContentRouter = require('./routes/siteContent');
+const hrContactsRouter = require('./routes/hrContacts');
 
 const app = express();
 
@@ -28,6 +30,8 @@ app.use(applicationsRouter);
 app.use(faqRulesRouter);
 app.use(pdpaRouter);
 app.use(integrationRouter);
+app.use(siteContentRouter);
+app.use(hrContactsRouter);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 

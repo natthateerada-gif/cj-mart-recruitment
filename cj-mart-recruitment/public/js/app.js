@@ -56,7 +56,7 @@
   }
   function hideModal(id) {
     document.getElementById(id).hidden = true;
-    const anyOpen = ['pdpa-modal', 'success-modal', 'job-modal', 'faq-modal']
+    const anyOpen = ['pdpa-modal', 'success-modal', 'job-modal', 'faq-modal', 'hr-contact-modal']
       .some((mid) => mid !== id && !document.getElementById(mid).hidden);
     if (!anyOpen) document.getElementById('modal-backdrop').hidden = true;
   }
@@ -78,10 +78,15 @@
     { keywords: ['ตำแหน่ง', 'งานว่าง', 'เปิดรับ'], answer: 'ตำแหน่งงานที่เปิดรับสมัครอยู่ในขณะนี้แสดงอยู่ในส่วน "ตำแหน่งงาน" ด้านบนค่ะ หากตำแหน่งไหนปิดรับสมัครแล้วจะไม่แสดงในหน้านี้' },
   ];
 
+  const PAGES = ['home', 'jobs', 'apply', 'faq', 'contact', 'admin'];
+
   const state = {
+    page: 'home',
     jobs: [],
     faqRules: [],
     pdpa: { policyText: '', consentText: '' },
+    siteContent: { companyOverview: '', social: { youtube: '', tiktok: '', facebook: '', instagram: '' } },
+    hrContacts: [],
     chat: { history: [] },
     admin: {
       loggedIn: false,
@@ -92,8 +97,23 @@
       jobsAll: [],
       faqRules: [],
       pdpa: { policyText: '', consentText: '' },
+      siteContent: { companyOverview: '', social: { youtube: '', tiktok: '', facebook: '', instagram: '' } },
+      hrContacts: [],
     },
   };
+
+  function showPage(page) {
+    if (!PAGES.includes(page)) page = 'home';
+    state.page = page;
+    PAGES.forEach((p) => {
+      const el = document.getElementById(`page-${p}`);
+      if (el) el.hidden = p !== page;
+    });
+    document.querySelectorAll('.nav-links a[data-page]').forEach((a) => {
+      a.classList.toggle('active', a.dataset.page === page);
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   let pendingApplicationForm = null; // FormData waiting on PDPA acceptance
 
@@ -102,21 +122,22 @@
   // ---------------------------------------------------------------------
   function renderShell() {
     document.getElementById('app').innerHTML = `
-      <section id="top" class="hero">
+      <section id="page-home" class="hero">
         <div class="wrap hero-grid">
           <div>
             <img class="hero-logo" src="/assets/logo.png" alt="CJ Mart">
             <span class="eyebrow">${icon('sparkles')} ร่วมงานกับ CJ Mart</span>
             <h1>สมัครงานร้านสะดวกซื้อ CJ Mart</h1>
-            <p class="lead">ค้นหาตำแหน่งงานที่ใช่ กรอกใบสมัครออนไลน์ได้ในไม่กี่นาที ทีมงานของเราพร้อมติดต่อกลับอย่างรวดเร็ว</p>
+            <p class="lead" id="home-overview">กำลังโหลดข้อมูลบริษัท...</p>
             <div class="hero-actions">
-              <a href="#jobs" class="btn btn-primary" data-nav="jobs">${icon('briefcase')} ดูตำแหน่งงาน</a>
-              <a href="#apply" class="btn btn-ghost" data-nav="apply">${icon('clipboard-check')} สมัครงานเลย</a>
+              <a href="#" class="btn btn-primary" data-page="jobs">${icon('briefcase')} ดูตำแหน่งงาน</a>
+              <a href="#" class="btn btn-ghost" data-page="apply">${icon('clipboard-check')} สมัครงานเลย</a>
             </div>
             <div class="hero-stats">
               <div class="stat-item">${icon('users', 'icon-badge tone-green')}<div><strong id="stat-open-jobs">-</strong><span>ตำแหน่งเปิดรับ</span></div></div>
               <div class="stat-item">${icon('truck', 'icon-badge tone-blue')}<div><strong>หลายสาขา</strong><span>ทั่วประเทศ</span></div></div>
             </div>
+            <div id="home-social" class="social-row"></div>
           </div>
           <div class="hero-card">
             <h3>ทำไมต้องร่วมงานกับเรา</h3>
@@ -130,17 +151,17 @@
         </div>
       </section>
 
-      <section id="jobs">
+      <section id="page-jobs" hidden>
         <div class="wrap">
           <div class="section-head">
             <div><div class="heading-row">${icon('briefcase', 'icon-badge tone-green')}<h2>ตำแหน่งงานที่เปิดรับสมัคร</h2></div>
-            <p>เลือกตำแหน่งที่สนใจ แล้วกดสมัครเพื่อไปที่แบบฟอร์มด้านล่าง</p></div>
+            <p>เลือกตำแหน่งที่สนใจ แล้วกดสมัครเพื่อไปที่แบบฟอร์มสมัครงาน</p></div>
           </div>
           <div id="jobs-content"></div>
         </div>
       </section>
 
-      <section id="apply">
+      <section id="page-apply" hidden>
         <div class="wrap">
           <div class="section-head">
             <div><div class="heading-row">${icon('clipboard-check', 'icon-badge tone-blue')}<h2>ใบสมัครงาน</h2></div>
@@ -150,7 +171,7 @@
         </div>
       </section>
 
-      <section id="faq">
+      <section id="page-faq" hidden>
         <div class="wrap">
           <div class="section-head">
             <div><div class="heading-row">${icon('message-circle', 'icon-badge tone-gold')}<h2>คำถามที่พบบ่อย</h2></div>
@@ -160,16 +181,66 @@
         </div>
       </section>
 
-      <section id="admin">
+      <section id="page-contact" hidden>
+        <div class="wrap">
+          <div class="section-head">
+            <div><div class="heading-row">${icon('users', 'icon-badge tone-blue')}<h2>ติดต่อเจ้าหน้าที่</h2></div>
+            <p>เจ้าหน้าที่ฝ่ายบุคคลแต่ละท่านดูแลตำแหน่งงานต่างกัน เลือกติดต่อท่านที่ดูแลตำแหน่งที่คุณสนใจได้เลย</p></div>
+          </div>
+          <div id="contact-content"></div>
+        </div>
+      </section>
+
+      <section id="page-admin" hidden>
         <div class="wrap">
           <div class="section-head">
             <div><div class="heading-row">${icon('shield', 'icon-badge tone-red')}<h2>สำหรับแอดมิน</h2></div>
-            <p>เข้าสู่ระบบเพื่อจัดการใบสมัคร ตำแหน่งงาน คำถามที่พบบ่อย และนโยบาย PDPA</p></div>
+            <p>เข้าสู่ระบบเพื่อจัดการใบสมัคร ตำแหน่งงาน คำถามที่พบบ่อย นโยบาย PDPA ข้อมูลหน้าแรก และผู้ติดต่อ HR</p></div>
           </div>
           <div id="admin-content"></div>
         </div>
       </section>
     `;
+  }
+
+  // ---------------------------------------------------------------------
+  // Home page
+  // ---------------------------------------------------------------------
+  const SOCIAL_LABELS = { youtube: 'YouTube', tiktok: 'TikTok', facebook: 'Facebook', instagram: 'Instagram' };
+
+  function renderHome() {
+    const overviewEl = document.getElementById('home-overview');
+    if (overviewEl) overviewEl.outerHTML = `<div class="overview-text" id="home-overview">${esc(state.siteContent.companyOverview || 'CJ Mart ร้านสะดวกซื้อที่พร้อมให้คุณร่วมเป็นส่วนหนึ่งของทีม')}</div>`;
+    const socialEl = document.getElementById('home-social');
+    if (socialEl) {
+      const links = Object.entries(state.siteContent.social || {}).filter(([, url]) => url);
+      socialEl.innerHTML = links.map(([key, url]) => `
+        <a class="social-link" href="${esc(url)}" target="_blank" rel="noopener">${icon('external-link')} ${esc(SOCIAL_LABELS[key] || key)}</a>
+      `).join('');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Contact page
+  // ---------------------------------------------------------------------
+  function renderContact() {
+    const el = document.getElementById('contact-content');
+    if (!el) return;
+    if (state.hrContacts.length === 0) {
+      el.innerHTML = `<div class="empty-state">${icon('users')}<p>ยังไม่มีข้อมูลเจ้าหน้าที่ติดต่อ</p></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="job-grid">${state.hrContacts.map((c) => `
+      <div class="contact-card">
+        <div class="heading-row">${icon('users', 'icon-badge tone-blue')}<h3>${esc(c.name)}</h3></div>
+        ${c.coverage ? `<p class="coverage">ดูแลตำแหน่ง: ${esc(c.coverage)}</p>` : ''}
+        <div class="details">
+          ${c.phone ? `<span>${icon('phone')} ${esc(c.phone)}</span>` : ''}
+          ${c.email ? `<span>${icon('mail')} ${esc(c.email)}</span>` : ''}
+          ${c.lineId ? `<span>${icon('message-circle')} LINE: ${esc(c.lineId)}</span>` : ''}
+        </div>
+      </div>
+    `).join('')}</div>`;
   }
 
   // ---------------------------------------------------------------------
@@ -421,6 +492,8 @@
       ['jobs', 'จัดการตำแหน่งงาน'],
       ['faq', 'คำถามที่พบบ่อย'],
       ['pdpa', 'นโยบาย PDPA'],
+      ['siteContent', 'ข้อมูลหน้าแรก'],
+      ['hrContacts', 'ผู้ติดต่อ HR'],
     ];
     return `
       <div class="admin-toolbar">
@@ -562,11 +635,56 @@
     document.getElementById('pdpa-edit-form').addEventListener('submit', handlePdpaEditSubmit);
   }
 
+  function renderAdminSiteContent() {
+    const s = state.admin.siteContent;
+    document.getElementById('admin-content').innerHTML = `
+      ${adminTabsHtml()}
+      <form id="site-content-edit-form" style="display:flex;flex-direction:column;gap:1rem;max-width:720px;">
+        <div class="field">
+          <label for="site-content-overview">ข้อความภาพรวมบริษัท (แสดงในหน้าแรก)</label>
+          <textarea id="site-content-overview" style="min-height:8rem;">${esc(s.companyOverview)}</textarea>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label for="site-content-youtube">ลิงก์ YouTube</label><input id="site-content-youtube" value="${esc(s.social.youtube)}" placeholder="https://youtube.com/..."></div>
+          <div class="field"><label for="site-content-tiktok">ลิงก์ TikTok</label><input id="site-content-tiktok" value="${esc(s.social.tiktok)}" placeholder="https://tiktok.com/..."></div>
+          <div class="field"><label for="site-content-facebook">ลิงก์ Facebook</label><input id="site-content-facebook" value="${esc(s.social.facebook)}" placeholder="https://facebook.com/..."></div>
+          <div class="field"><label for="site-content-instagram">ลิงก์ Instagram</label><input id="site-content-instagram" value="${esc(s.social.instagram)}" placeholder="https://instagram.com/..."></div>
+        </div>
+        <p class="hint">เว้นว่างช่องไหนไว้ จะไม่แสดงปุ่มลิงก์นั้นในหน้าแรก</p>
+        <div><button type="submit" class="btn btn-primary">บันทึก</button></div>
+      </form>
+    `;
+    document.getElementById('site-content-edit-form').addEventListener('submit', handleSiteContentEditSubmit);
+  }
+
+  function renderAdminHrContacts() {
+    const rows = state.admin.hrContacts.map((c) => `
+      <div class="job-manage-row">
+        <div><strong>${esc(c.name)}</strong>${c.coverage ? ` <span class="hint">— ${esc(c.coverage)}</span>` : ''}<br>
+        <span class="hint">${[c.phone, c.email, c.lineId ? 'LINE: ' + c.lineId : ''].filter(Boolean).map(esc).join(' · ')}</span></div>
+        <div style="display:flex;gap:.4rem;">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="hr-contact-edit" data-id="${esc(c.id)}">${icon('edit')}</button>
+          <button type="button" class="btn btn-danger btn-sm" data-action="hr-contact-delete" data-id="${esc(c.id)}">${icon('trash')}</button>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('admin-content').innerHTML = `
+      ${adminTabsHtml()}
+      <div class="admin-toolbar">
+        <span class="hint">รายชื่อนี้จะแสดงในหน้า "ติดต่อเจ้าหน้าที่" ของเว็บสาธารณะ</span>
+        <button type="button" class="btn btn-primary btn-sm" data-action="hr-contact-new">${icon('plus')} เพิ่มเจ้าหน้าที่</button>
+      </div>
+      <div class="job-manage">${rows || `<div class="empty-state">ยังไม่มีข้อมูลเจ้าหน้าที่ติดต่อ</div>`}</div>
+    `;
+  }
+
   function renderAdmin() {
     if (!state.admin.loggedIn) { renderAdminLogin(); return; }
     if (state.admin.tab === 'jobs') renderAdminJobs();
     else if (state.admin.tab === 'faq') renderAdminFaq();
     else if (state.admin.tab === 'pdpa') renderAdminPdpa();
+    else if (state.admin.tab === 'siteContent') renderAdminSiteContent();
+    else if (state.admin.tab === 'hrContacts') renderAdminHrContacts();
     else renderAdminApplicants();
   }
 
@@ -583,14 +701,18 @@
   }
 
   async function loadAdminData() {
-    const [jobsAll, faqRules, pdpa] = await Promise.all([
+    const [jobsAll, faqRules, pdpa, siteContent, hrContacts] = await Promise.all([
       api('/api/admin/jobs'),
       api('/api/faq-rules'),
       api('/api/admin/pdpa'),
+      api('/api/admin/site-content'),
+      api('/api/admin/hr-contacts'),
     ]);
     state.admin.jobsAll = jobsAll;
     state.admin.faqRules = faqRules;
     state.admin.pdpa = pdpa;
+    state.admin.siteContent = siteContent;
+    state.admin.hrContacts = hrContacts;
     await loadAdminApplications();
   }
 
@@ -768,15 +890,84 @@
     } catch (err) { toast(err.message, 'error'); }
   }
 
+  // Site content (admin)
+  async function handleSiteContentEditSubmit(e) {
+    e.preventDefault();
+    const payload = {
+      companyOverview: document.getElementById('site-content-overview').value.trim(),
+      social: {
+        youtube: document.getElementById('site-content-youtube').value.trim(),
+        tiktok: document.getElementById('site-content-tiktok').value.trim(),
+        facebook: document.getElementById('site-content-facebook').value.trim(),
+        instagram: document.getElementById('site-content-instagram').value.trim(),
+      },
+    };
+    try {
+      const updated = await api('/api/admin/site-content', { method: 'PUT', body: payload });
+      state.admin.siteContent = updated;
+      state.siteContent = updated;
+      renderHome();
+      toast('บันทึกข้อมูลหน้าแรกแล้ว', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  // HR contacts (admin)
+  function openHrContactModal(contact) {
+    document.getElementById('hr-contact-modal-title').textContent = contact ? 'แก้ไขเจ้าหน้าที่ติดต่อ' : 'เพิ่มเจ้าหน้าที่ติดต่อ';
+    document.getElementById('hr-contact-form').dataset.id = contact ? contact.id : '';
+    document.getElementById('hr-contact-form-name').value = contact ? contact.name : '';
+    document.getElementById('hr-contact-form-coverage').value = contact ? contact.coverage : '';
+    document.getElementById('hr-contact-form-phone').value = contact ? contact.phone : '';
+    document.getElementById('hr-contact-form-email').value = contact ? contact.email : '';
+    document.getElementById('hr-contact-form-line').value = contact ? contact.lineId : '';
+    showModal('hr-contact-modal');
+  }
+
+  async function handleHrContactFormSubmit(e) {
+    e.preventDefault();
+    const id = e.target.dataset.id;
+    const payload = {
+      name: document.getElementById('hr-contact-form-name').value.trim(),
+      coverage: document.getElementById('hr-contact-form-coverage').value.trim(),
+      phone: document.getElementById('hr-contact-form-phone').value.trim(),
+      email: document.getElementById('hr-contact-form-email').value.trim(),
+      lineId: document.getElementById('hr-contact-form-line').value.trim(),
+    };
+    try {
+      if (id) await api(`/api/admin/hr-contacts/${id}`, { method: 'PATCH', body: payload });
+      else await api('/api/admin/hr-contacts', { method: 'POST', body: payload });
+      hideModal('hr-contact-modal');
+      toast('บันทึกข้อมูลเจ้าหน้าที่แล้ว', 'success');
+      await refreshHrContactsEverywhere();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function handleHrContactDelete(id) {
+    if (!confirm('ยืนยันลบเจ้าหน้าที่ท่านนี้?')) return;
+    try {
+      await api(`/api/admin/hr-contacts/${id}`, { method: 'DELETE' });
+      toast('ลบข้อมูลเจ้าหน้าที่แล้ว', 'success');
+      await refreshHrContactsEverywhere();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function refreshHrContactsEverywhere() {
+    state.hrContacts = await api('/api/hr-contacts');
+    renderContact();
+    if (state.admin.loggedIn) {
+      state.admin.hrContacts = state.hrContacts;
+      renderAdmin();
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Event delegation (attached once)
   // ---------------------------------------------------------------------
   document.addEventListener('click', (e) => {
-    const navEl = e.target.closest('[data-nav]');
-    if (navEl) {
+    const pageEl = e.target.closest('[data-page]');
+    if (pageEl) {
       e.preventDefault();
-      const target = document.getElementById(navEl.dataset.nav);
-      if (target) target.scrollIntoView({ behavior: 'smooth' });
+      showPage(pageEl.dataset.page);
       return;
     }
 
@@ -785,8 +976,8 @@
     const action = actionEl.dataset.action;
 
     if (action === 'apply-to') {
+      showPage('apply');
       document.getElementById('apply-job').value = actionEl.dataset.jobId;
-      document.getElementById('apply').scrollIntoView({ behavior: 'smooth' });
     } else if (action === 'pdpa-cancel') {
       hideModal('pdpa-modal');
       pendingApplicationForm = null;
@@ -822,6 +1013,14 @@
       handleFaqDelete(actionEl.dataset.id);
     } else if (action === 'faq-form-cancel') {
       hideModal('faq-modal');
+    } else if (action === 'hr-contact-new') {
+      openHrContactModal(null);
+    } else if (action === 'hr-contact-edit') {
+      openHrContactModal(state.admin.hrContacts.find((c) => c.id === actionEl.dataset.id));
+    } else if (action === 'hr-contact-delete') {
+      handleHrContactDelete(actionEl.dataset.id);
+    } else if (action === 'hr-contact-form-cancel') {
+      hideModal('hr-contact-modal');
     }
   });
 
@@ -838,6 +1037,7 @@
 
   document.getElementById('job-form').addEventListener('submit', handleJobFormSubmit);
   document.getElementById('faq-form').addEventListener('submit', handleFaqFormSubmit);
+  document.getElementById('hr-contact-form').addEventListener('submit', handleHrContactFormSubmit);
   document.getElementById('pdpa-consent-check').addEventListener('change', (e) => {
     document.getElementById('pdpa-accept-btn').disabled = !e.target.checked;
   });
@@ -865,20 +1065,27 @@
     renderShell();
     initChat();
     try {
-      const [jobs, faqRules, pdpa] = await Promise.all([
+      const [jobs, faqRules, pdpa, siteContent, hrContacts] = await Promise.all([
         api('/api/jobs'),
         api('/api/faq-rules'),
         api('/api/pdpa'),
+        api('/api/site-content'),
+        api('/api/hr-contacts'),
       ]);
       state.jobs = jobs;
       state.faqRules = faqRules;
       state.pdpa = pdpa;
+      state.siteContent = siteContent;
+      state.hrContacts = hrContacts;
     } catch (err) {
       toast('ไม่สามารถโหลดข้อมูลได้ กรุณาลองรีเฟรชหน้าใหม่', 'error');
     }
+    renderHome();
     renderJobs();
     renderApply();
     renderFaq();
+    renderContact();
+    showPage('home');
     await checkAdminSession();
   }
 

@@ -12,6 +12,10 @@ services:
     name: cjmart-recruitment
     runtime: node
     plan: free
+    # This repo's files live inside a "cj-mart-recruitment/" subfolder (not
+    # at the repo root), so Render needs to know to run everything from
+    # there. If you ever restructure the repo so package.json sits at the
+    # root instead, remove this line.
     rootDir: cj-mart-recruitment
     buildCommand: npm install && npm run migrate
     startCommand: npm start

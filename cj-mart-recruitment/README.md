@@ -1,8 +1,11 @@
 # CJ Mart Recruitment System
 
-A full-stack careers site for CJ Mart: public job listings, an online application
-form with file uploads and PDPA consent, a keyword FAQ chatbot, and an admin
-panel — all backed by a real Node.js + Express + PostgreSQL API, with a
+A full-stack careers site for CJ Mart, organized as separate pages (real
+navigation, not just scroll anchors): a home page with a company overview and
+social media links, a job listings page, a dedicated application-form page
+with file uploads and PDPA consent, a keyword FAQ chatbot page, a page listing
+HR staff to contact (since different staff cover different positions), and an
+admin panel — all backed by a real Node.js + Express + PostgreSQL API, with a
 dedicated integration surface so a future Recruitment Management System (RMS)
 can connect to it.
 
@@ -78,6 +81,8 @@ by the browser once logged in).
 | `POST /api/applications` | Submit an application. `multipart/form-data` with fields: `jobId, name, phone, email, area, startDate, experience, availability` (repeatable), `pdpaConsent` (must be `"true"`), plus optional `resumeFile` / `photoFile`. Rejects with 400 if PDPA consent is missing — this is re-checked server-side regardless of what the frontend sent. |
 | `GET /api/faq-rules` | List admin-added FAQ keyword/answer pairs (the chatbot's default rules live in the frontend and are merged with these client-side) |
 | `GET /api/pdpa` | Current PDPA policy text + consent checkbox text |
+| `GET /api/site-content` | Home page content: `{ companyOverview, social: { youtube, tiktok, facebook, instagram } }` |
+| `GET /api/hr-contacts` | HR staff shown on the "ติดต่อเจ้าหน้าที่" page, ordered for display |
 
 ### Admin (cookie session)
 
@@ -102,6 +107,11 @@ by the browser once logged in).
 | `POST /api/admin/faq-rules` | `{ keywords: string[], answer }` |
 | `DELETE /api/admin/faq-rules/:id` | Delete an FAQ rule |
 | `GET /api/admin/pdpa` / `PUT /api/admin/pdpa` | Read/update `{ policyText, consentText }` |
+| `GET /api/admin/site-content` / `PUT /api/admin/site-content` | Read/update the home page's company overview + social links |
+| `GET /api/admin/hr-contacts` | List all HR contacts |
+| `POST /api/admin/hr-contacts` | Create a contact: `{ name, coverage, phone, email, lineId }` |
+| `PATCH /api/admin/hr-contacts/:id` | Update any subset of a contact's fields |
+| `DELETE /api/admin/hr-contacts/:id` | Delete a contact |
 
 ## Connecting the Recruitment Management System
 
