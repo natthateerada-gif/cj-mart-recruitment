@@ -1,0 +1,31 @@
+# Render "Blueprint" — lets you deploy this whole project (web service + database)
+# in one step: on Render, choose "New" -> "Blueprint", point it at this repo, and
+# Render reads this file to create everything below automatically on the free tier.
+#
+# This is meant for trying the site out for real (a live URL, a real shared
+# database) before deciding on permanent hosting — nothing here costs money on
+# Render's free tier, and nothing here is required if you end up hosting this
+# somewhere else later; render.yaml is only read when you deploy via Render.
+
+services:
+  - type: web
+    name: cjmart-recruitment
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run migrate
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cjmart-recruitment-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false # set this yourself in the Render dashboard after the first deploy
+      - key: PGSSL
+        value: "true"
+
+databases:
+  - name: cjmart-recruitment-db
+    plan: free
