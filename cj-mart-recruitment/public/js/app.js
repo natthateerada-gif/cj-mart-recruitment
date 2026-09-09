@@ -141,10 +141,16 @@
           <div class="hero-card">
             <h3>สวัสดิการพนักงาน</h3>
             <ul>
-              <li>${icon('banknote', 'icon-badge sm tone-gold')}<span class="txt">รายได้มั่นคง จ่ายตรงเวลา</span></li>
-              <li>${icon('clock', 'icon-badge sm tone-blue')}<span class="txt">เลือกกะเวลาทำงานที่สะดวก</span></li>
-              <li>${icon('graduation-cap', 'icon-badge sm tone-green')}<span class="txt">ฝึกอบรมให้ ไม่ต้องมีประสบการณ์</span></li>
-              <li>${icon('gift', 'icon-badge sm tone-red')}<span class="txt">สวัสดิการตามกฎหมายและเพิ่มเติม</span></li>
+              <li>${icon('banknote', 'icon-badge sm tone-gold')}<span class="txt">รายได้มั่นคง จ่ายเงินเดือน 2 รอบ (วันที่ 5 และ 20 ของเดือน)</span></li>
+              <li>${icon('clock', 'icon-badge sm tone-blue')}<span class="txt">วันหยุดพักผ่อนประจำปี เริ่มต้นที่ 12-17 วัน</span></li>
+              <li>${icon('shield', 'icon-badge sm tone-green')}<span class="txt">กองทุนสำรองเลี้ยงชีพ</span></li>
+              <li>${icon('heart', 'icon-badge sm tone-red')}<span class="txt">ประกันชีวิต</span></li>
+              <li>${icon('shield', 'icon-badge sm tone-blue')}<span class="txt">ประกันสังคม</span></li>
+              <li>${icon('box', 'icon-badge sm tone-gold')}<span class="txt">สวัสดิการเงินกู้เพื่อที่อยู่อาศัย</span></li>
+              <li>${icon('gift', 'icon-badge sm tone-green')}<span class="txt">โบนัสประจำปี (บางตำแหน่งงาน)</span></li>
+              <li>${icon('heart', 'icon-badge sm tone-gold')}<span class="txt">ประกันสุขภาพ OPD/IPD (บางตำแหน่งงาน)</span></li>
+              <li>${icon('shield', 'icon-badge sm tone-red')}<span class="txt">ค่าทันตกรรม (บางตำแหน่งงาน)</span></li>
+              <li>${icon('sparkles', 'icon-badge sm tone-blue')}<span class="txt">สวัสดิการอื่นๆ ตามที่บริษัทกำหนด</span></li>
             </ul>
           </div>
         </div>
