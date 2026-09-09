@@ -127,7 +127,7 @@
           <div>
             <img class="hero-logo" src="/assets/logo.png" alt="CJ Mart">
             <span class="eyebrow">${icon('sparkles')} ร่วมงานกับ CJ Mart</span>
-            <h1>สมัครงานร้านสะดวกซื้อ CJ Mart</h1>
+            <h1>สมัครงานร่วมงานกับเรา</h1>
             <p class="lead" id="home-overview">กำลังโหลดข้อมูลบริษัท...</p>
             <div class="hero-actions">
               <a href="#" class="btn btn-primary" data-page="jobs">${icon('briefcase')} ดูตำแหน่งงาน</a>
