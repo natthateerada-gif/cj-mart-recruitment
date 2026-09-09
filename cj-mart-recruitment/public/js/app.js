@@ -139,7 +139,7 @@
             <div id="home-social" class="social-row"></div>
           </div>
           <div class="hero-card">
-            <h3>ทำไมต้องร่วมงานกับเรา</h3>
+            <h3>สวัสดิการพนักงาน</h3>
             <ul>
               <li>${icon('banknote', 'icon-badge sm tone-gold')}<span class="txt">รายได้มั่นคง จ่ายตรงเวลา</span></li>
               <li>${icon('clock', 'icon-badge sm tone-blue')}<span class="txt">เลือกกะเวลาทำงานที่สะดวก</span></li>
