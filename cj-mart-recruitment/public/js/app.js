@@ -135,7 +135,6 @@
             </div>
             <div class="hero-stats">
               <div class="stat-item">${icon('users', 'icon-badge tone-green')}<div><strong id="stat-open-jobs">-</strong><span>ตำแหน่งเปิดรับ</span></div></div>
-              <div class="stat-item">${icon('truck', 'icon-badge tone-blue')}<div><strong>หลายสาขา</strong><span>ทั่วประเทศ</span></div></div>
             </div>
             <div id="home-social" class="social-row"></div>
           </div>
