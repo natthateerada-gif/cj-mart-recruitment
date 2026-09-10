@@ -73,3 +73,14 @@ CREATE TABLE IF NOT EXISTS hr_contacts (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Rotating image banner shown at the top of the home page. Images are
+-- uploaded as files (stored under uploads/banner/, served publicly — see
+-- server.js) with only the filename kept here; admins add/remove them from
+-- the admin panel and the public homepage cycles through whatever exists.
+CREATE TABLE IF NOT EXISTS banner_images (
+  id             TEXT PRIMARY KEY,
+  filename       TEXT NOT NULL,
+  display_order  INTEGER NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);

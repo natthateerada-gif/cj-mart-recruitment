@@ -87,6 +87,7 @@
     pdpa: { policyText: '', consentText: '' },
     siteContent: { companyOverview: '', social: { youtube: '', tiktok: '', facebook: '', instagram: '' } },
     hrContacts: [],
+    bannerImages: [],
     chat: { history: [] },
     admin: {
       loggedIn: false,
@@ -99,6 +100,7 @@
       pdpa: { policyText: '', consentText: '' },
       siteContent: { companyOverview: '', social: { youtube: '', tiktok: '', facebook: '', instagram: '' } },
       hrContacts: [],
+      bannerImages: [],
     },
   };
 
@@ -123,6 +125,9 @@
   function renderShell() {
     document.getElementById('app').innerHTML = `
       <section id="page-home" class="hero">
+        <div class="wrap">
+          <div id="home-banner" class="banner-carousel" hidden></div>
+        </div>
         <div class="wrap hero-grid">
           <div>
             <img class="hero-logo" src="/assets/logo.png" alt="CJ Mart">
@@ -222,6 +227,44 @@
       socialEl.innerHTML = links.map(([key, url]) => `
         <a class="social-link" href="${esc(url)}" target="_blank" rel="noopener">${icon('external-link')} ${esc(SOCIAL_LABELS[key] || key)}</a>
       `).join('');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Home banner (rotating images managed from the admin panel)
+  // ---------------------------------------------------------------------
+  let bannerTimer = null;
+  let bannerIndex = 0;
+
+  function goToBannerSlide(index) {
+    const el = document.getElementById('home-banner');
+    if (!el) return;
+    const images = el.querySelectorAll('img');
+    const dots = el.querySelectorAll('.banner-dots button');
+    if (images.length === 0) return;
+    bannerIndex = ((index % images.length) + images.length) % images.length;
+    images.forEach((img, i) => img.classList.toggle('active', i === bannerIndex));
+    dots.forEach((dot, i) => dot.classList.toggle('active', i === bannerIndex));
+  }
+
+  function renderBanner() {
+    const el = document.getElementById('home-banner');
+    if (!el) return;
+    if (bannerTimer) { clearInterval(bannerTimer); bannerTimer = null; }
+    const images = state.bannerImages;
+    if (!images || images.length === 0) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    el.hidden = false;
+    el.innerHTML = `
+      ${images.map((b, i) => `<img src="${esc(b.url)}" alt="แบนเนอร์ CJ Mart" class="${i === 0 ? 'active' : ''}">`).join('')}
+      ${images.length > 1 ? `<div class="banner-dots">${images.map((b, i) => `<button type="button" data-action="banner-goto" data-index="${i}" class="${i === 0 ? 'active' : ''}" aria-label="ภาพที่ ${i + 1}"></button>`).join('')}</div>` : ''}
+    `;
+    bannerIndex = 0;
+    if (images.length > 1) {
+      bannerTimer = setInterval(() => goToBannerSlide(bannerIndex + 1), 4500);
     }
   }
 
@@ -499,6 +542,7 @@
       ['pdpa', 'นโยบาย PDPA'],
       ['siteContent', 'ข้อมูลหน้าแรก'],
       ['hrContacts', 'ผู้ติดต่อ HR'],
+      ['bannerImages', 'แบนเนอร์หน้าแรก'],
     ];
     return `
       <div class="admin-toolbar">
@@ -683,6 +727,25 @@
     `;
   }
 
+  function renderAdminBannerImages() {
+    const images = state.admin.bannerImages;
+    const cards = images.map((b) => `
+      <div class="banner-thumb">
+        <img src="${esc(b.url)}" alt="แบนเนอร์">
+        <button type="button" class="btn btn-danger btn-sm" data-action="banner-delete" data-id="${esc(b.id)}">${icon('trash')}</button>
+      </div>
+    `).join('');
+    document.getElementById('admin-content').innerHTML = `
+      ${adminTabsHtml()}
+      <div class="admin-toolbar">
+        <span class="hint">ภาพที่เพิ่มไว้นี้จะหมุนแสดงเป็นแบนเนอร์บนหน้าแรก (แนะนำภาพแนวนอน ขนาดไม่เกิน 5MB)</span>
+        <label class="btn btn-primary btn-sm" style="cursor:pointer;">${icon('upload')} เพิ่มรูปแบนเนอร์<input type="file" id="banner-upload-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;"></label>
+      </div>
+      <div class="banner-thumb-grid">${cards || `<div class="empty-state">ยังไม่มีรูปแบนเนอร์ — อัปโหลดรูปแรกได้เลย</div>`}</div>
+    `;
+    document.getElementById('banner-upload-input').addEventListener('change', handleBannerUpload);
+  }
+
   function renderAdmin() {
     if (!state.admin.loggedIn) { renderAdminLogin(); return; }
     if (state.admin.tab === 'jobs') renderAdminJobs();
@@ -690,6 +753,7 @@
     else if (state.admin.tab === 'pdpa') renderAdminPdpa();
     else if (state.admin.tab === 'siteContent') renderAdminSiteContent();
     else if (state.admin.tab === 'hrContacts') renderAdminHrContacts();
+    else if (state.admin.tab === 'bannerImages') renderAdminBannerImages();
     else renderAdminApplicants();
   }
 
@@ -706,18 +770,20 @@
   }
 
   async function loadAdminData() {
-    const [jobsAll, faqRules, pdpa, siteContent, hrContacts] = await Promise.all([
+    const [jobsAll, faqRules, pdpa, siteContent, hrContacts, bannerImages] = await Promise.all([
       api('/api/admin/jobs'),
       api('/api/faq-rules'),
       api('/api/admin/pdpa'),
       api('/api/admin/site-content'),
       api('/api/admin/hr-contacts'),
+      api('/api/admin/banner-images'),
     ]);
     state.admin.jobsAll = jobsAll;
     state.admin.faqRules = faqRules;
     state.admin.pdpa = pdpa;
     state.admin.siteContent = siteContent;
     state.admin.hrContacts = hrContacts;
+    state.admin.bannerImages = bannerImages;
     await loadAdminApplications();
   }
 
@@ -965,6 +1031,38 @@
     }
   }
 
+  // Banner images (admin)
+  async function handleBannerUpload(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('image', file);
+    try {
+      await api('/api/admin/banner-images', { method: 'POST', body: fd });
+      toast('เพิ่มรูปแบนเนอร์แล้ว', 'success');
+      await refreshBannerImagesEverywhere();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function handleBannerDelete(id) {
+    if (!confirm('ยืนยันลบรูปแบนเนอร์นี้?')) return;
+    try {
+      await api(`/api/admin/banner-images/${id}`, { method: 'DELETE' });
+      toast('ลบรูปแบนเนอร์แล้ว', 'success');
+      await refreshBannerImagesEverywhere();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function refreshBannerImagesEverywhere() {
+    state.bannerImages = await api('/api/banner-images');
+    renderBanner();
+    if (state.admin.loggedIn) {
+      state.admin.bannerImages = state.bannerImages;
+      renderAdmin();
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Event delegation (attached once)
   // ---------------------------------------------------------------------
@@ -1026,6 +1124,10 @@
       handleHrContactDelete(actionEl.dataset.id);
     } else if (action === 'hr-contact-form-cancel') {
       hideModal('hr-contact-modal');
+    } else if (action === 'banner-delete') {
+      handleBannerDelete(actionEl.dataset.id);
+    } else if (action === 'banner-goto') {
+      goToBannerSlide(parseInt(actionEl.dataset.index, 10));
     }
   });
 
@@ -1070,22 +1172,25 @@
     renderShell();
     initChat();
     try {
-      const [jobs, faqRules, pdpa, siteContent, hrContacts] = await Promise.all([
+      const [jobs, faqRules, pdpa, siteContent, hrContacts, bannerImages] = await Promise.all([
         api('/api/jobs'),
         api('/api/faq-rules'),
         api('/api/pdpa'),
         api('/api/site-content'),
         api('/api/hr-contacts'),
+        api('/api/banner-images'),
       ]);
       state.jobs = jobs;
       state.faqRules = faqRules;
       state.pdpa = pdpa;
       state.siteContent = siteContent;
       state.hrContacts = hrContacts;
+      state.bannerImages = bannerImages;
     } catch (err) {
       toast('ไม่สามารถโหลดข้อมูลได้ กรุณาลองรีเฟรชหน้าใหม่', 'error');
     }
     renderHome();
+    renderBanner();
     renderJobs();
     renderApply();
     renderFaq();

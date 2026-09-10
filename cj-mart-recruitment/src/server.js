@@ -12,6 +12,8 @@ const adminAuthRouter = require('./routes/adminAuth');
 const integrationRouter = require('./routes/integration');
 const siteContentRouter = require('./routes/siteContent');
 const hrContactsRouter = require('./routes/hrContacts');
+const bannerImagesRouter = require('./routes/bannerImages');
+const { BANNER_DIR } = require('./upload');
 
 const app = express();
 
@@ -32,6 +34,12 @@ app.use(pdpaRouter);
 app.use(integrationRouter);
 app.use(siteContentRouter);
 app.use(hrContactsRouter);
+app.use(bannerImagesRouter);
+
+// Banner images are the only uploaded files served publicly (no login
+// needed to view the homepage banner) — resumes/photos stay behind the
+// admin-only download routes in applications.js.
+app.use('/uploads/banner', express.static(BANNER_DIR));
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
