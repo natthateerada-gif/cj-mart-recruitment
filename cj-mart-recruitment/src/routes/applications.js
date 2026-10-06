@@ -54,6 +54,10 @@ function rowToApplication(row, { includeFilePaths = false } = {}) {
     hasDriverLicense: row.has_driver_license,
     hasCriminalRecord: row.has_criminal_record,
     criminalRecordDetail: row.criminal_record_detail || '',
+    hasChronicDisease: row.has_chronic_disease,
+    chronicDiseaseDetail: row.chronic_disease_detail || '',
+    workedAtKarabao: row.worked_at_karabao,
+    karabaoCompany: row.karabao_company || '',
     sourceChannel: row.source_channel || '',
     totalExperience: row.total_experience || '',
     startDate: row.start_date,
@@ -104,6 +108,10 @@ router.post(
       const hasDriverLicense = parseYesNo(b.hasDriverLicense);
       const hasCriminalRecord = parseYesNo(b.hasCriminalRecord);
       const criminalRecordDetail = (b.criminalRecordDetail || '').trim();
+      const hasChronicDisease = parseYesNo(b.hasChronicDisease);
+      const chronicDiseaseDetail = (b.chronicDiseaseDetail || '').trim();
+      const workedAtKarabao = parseYesNo(b.workedAtKarabao);
+      const karabaoCompany = (b.karabaoCompany || '').trim();
       let sourceChannel = (b.sourceChannel || '').trim();
       if (sourceChannel === 'อื่นๆ') sourceChannel = (b.sourceChannelOther || '').trim() || 'อื่นๆ';
       const totalExperience = (b.totalExperience || '').trim();
@@ -119,6 +127,10 @@ router.post(
       if (hasDriverLicense === null) errors.push('กรุณาตอบคำถามว่ามีใบขับขี่รถยนต์หรือไม่');
       if (hasCriminalRecord === null) errors.push('กรุณาตอบคำถามเรื่องประวัติถูกดำเนินคดี');
       if (hasCriminalRecord === true && !criminalRecordDetail) errors.push('กรุณาระบุรายละเอียดคดี');
+      if (hasChronicDisease === null) errors.push('กรุณาตอบคำถามเรื่องโรคประจำตัว');
+      if (hasChronicDisease === true && !chronicDiseaseDetail) errors.push('กรุณาระบุโรคประจำตัว');
+      if (workedAtKarabao === null) errors.push('กรุณาตอบคำถามว่าเคยเป็นพนักงานในเครือคาราบาวหรือไม่');
+      if (workedAtKarabao === true && !karabaoCompany) errors.push('กรุณาระบุชื่อบริษัทในเครือคาราบาวที่เคยทำงาน');
       if (!sourceChannel || (!SOURCE_OPTIONS.includes(sourceChannel) && !(b.sourceChannel === 'อื่นๆ'))) errors.push('กรุณาเลือกช่องทางที่รับทราบประกาศสมัครงาน');
       if (!EXPERIENCE_OPTIONS.includes(totalExperience)) errors.push('กรุณาเลือกจำนวนประสบการณ์ทำงานรวม');
       if (!experience) errors.push('กรุณากรอกรายละเอียดประสบการณ์ทำงาน');
@@ -142,9 +154,10 @@ router.post(
            resume_path, resume_original_name, resume_mime_type, photo_path, photo_original_name, photo_mime_type,
            status, pdpa_consent, pdpa_consent_at,
            title_prefix, birth_date, line_id, can_drive_car, has_driver_license, has_criminal_record,
-           criminal_record_detail, source_channel, total_experience)
+           criminal_record_detail, source_channel, total_experience,
+           has_chronic_disease, chronic_disease_detail, worked_at_karabao, karabao_company)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now(),
-                 $19,$20,$21,$22,$23,$24,$25,$26,$27)
+                 $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
          RETURNING *`,
         [
           id, job.id, job.title, name, phone, (b.email || '').trim(), province, startDate,
@@ -154,6 +167,8 @@ router.post(
           'ใหม่', true,
           titlePrefix, birthDate, lineId, canDriveCar, hasDriverLicense, hasCriminalRecord,
           hasCriminalRecord ? criminalRecordDetail : '', sourceChannel, totalExperience,
+          hasChronicDisease, hasChronicDisease ? chronicDiseaseDetail : '',
+          workedAtKarabao, workedAtKarabao ? karabaoCompany : '',
         ]
       );
 
@@ -252,6 +267,10 @@ router.get('/api/admin/export/applicants.csv', requireAdmin, async (req, res, ne
       { label: 'hasDriverLicense', value: (a) => (a.hasDriverLicense === null ? '' : a.hasDriverLicense ? 'TRUE' : 'FALSE') },
       { label: 'hasCriminalRecord', value: (a) => (a.hasCriminalRecord === null ? '' : a.hasCriminalRecord ? 'TRUE' : 'FALSE') },
       { label: 'criminalRecordDetail', value: 'criminalRecordDetail' },
+      { label: 'hasChronicDisease', value: (a) => (a.hasChronicDisease === null ? '' : a.hasChronicDisease ? 'TRUE' : 'FALSE') },
+      { label: 'chronicDiseaseDetail', value: 'chronicDiseaseDetail' },
+      { label: 'workedAtKarabao', value: (a) => (a.workedAtKarabao === null ? '' : a.workedAtKarabao ? 'TRUE' : 'FALSE') },
+      { label: 'karabaoCompany', value: 'karabaoCompany' },
       { label: 'sourceChannel', value: 'sourceChannel' },
       { label: 'totalExperience', value: 'totalExperience' },
       { label: 'availability(legacy)', value: (a) => (a.availability || []).join(', ') },

@@ -50,6 +50,10 @@ ALTER TABLE applications ADD COLUMN IF NOT EXISTS can_drive_car         BOOLEAN;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS has_driver_license    BOOLEAN;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS has_criminal_record   BOOLEAN;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS criminal_record_detail TEXT DEFAULT '';
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS has_chronic_disease    BOOLEAN;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS chronic_disease_detail TEXT DEFAULT '';
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS worked_at_karabao      BOOLEAN;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS karabao_company        TEXT DEFAULT '';
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS source_channel        TEXT DEFAULT '';
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS total_experience      TEXT DEFAULT '';
 

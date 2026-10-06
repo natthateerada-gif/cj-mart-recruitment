@@ -425,6 +425,16 @@
               <label for="apply-criminal-detail">ระบุรายละเอียดคดี <span class="required">*</span></label>
               <textarea id="apply-criminal-detail" placeholder="ระบุข้อหา/รายละเอียดคดี และผลของคดี"></textarea>
             </div>
+            ${yesNoField('apply-chronic', 'มีโรคประจำตัวหรือไม่')}
+            <div class="field full" id="apply-chronic-detail-wrap" hidden>
+              <label for="apply-chronic-detail">ระบุโรคประจำตัว <span class="required">*</span></label>
+              <textarea id="apply-chronic-detail" placeholder="ระบุโรคประจำตัว"></textarea>
+            </div>
+            ${yesNoField('apply-karabao', 'เคยเป็นพนักงานในเครือคาราบาวหรือไม่')}
+            <div class="field full" id="apply-karabao-company-wrap" hidden>
+              <label for="apply-karabao-company">ระบุชื่อบริษัท <span class="required">*</span></label>
+              <input type="text" id="apply-karabao-company" placeholder="ชื่อบริษัทในเครือคาราบาวที่เคยทำงาน" />
+            </div>
             <div class="field full">
               <label for="apply-total-exp">จำนวนประสบการณ์ทำงานรวม <span class="required">*</span></label>
               <select id="apply-total-exp" required>
@@ -483,6 +493,10 @@
     const hasDriverLicense = radioValue('apply-has-license');
     const hasCriminalRecord = radioValue('apply-criminal');
     const criminalRecordDetail = document.getElementById('apply-criminal-detail').value.trim();
+    const hasChronicDisease = radioValue('apply-chronic');
+    const chronicDiseaseDetail = document.getElementById('apply-chronic-detail').value.trim();
+    const workedAtKarabao = radioValue('apply-karabao');
+    const karabaoCompany = document.getElementById('apply-karabao-company').value.trim();
     const sourceChannel = document.getElementById('apply-source').value;
     const sourceChannelOther = document.getElementById('apply-source-other').value.trim();
     const totalExperience = document.getElementById('apply-total-exp').value;
@@ -510,12 +524,17 @@
     if (!hasDriverLicense) errors.push('กรุณาตอบคำถามว่ามีใบขับขี่รถยนต์หรือไม่');
     if (!hasCriminalRecord) errors.push('กรุณาตอบคำถามเรื่องประวัติถูกดำเนินคดี');
     else if (hasCriminalRecord === 'true' && !criminalRecordDetail) errors.push('กรุณาระบุรายละเอียดคดี');
+    if (!hasChronicDisease) errors.push('กรุณาตอบคำถามเรื่องโรคประจำตัว');
+    else if (hasChronicDisease === 'true' && !chronicDiseaseDetail) errors.push('กรุณาระบุโรคประจำตัว');
+    if (!workedAtKarabao) errors.push('กรุณาตอบคำถามว่าเคยเป็นพนักงานในเครือคาราบาวหรือไม่');
+    else if (workedAtKarabao === 'true' && !karabaoCompany) errors.push('กรุณาระบุชื่อบริษัทในเครือคาราบาวที่เคยทำงาน');
     if (!sourceChannel) errors.push('กรุณาเลือกช่องทางที่รับทราบประกาศสมัครงาน');
     if (!totalExperience) errors.push('กรุณาเลือกจำนวนประสบการณ์ทำงานรวม');
     if (!experience) errors.push('กรุณากรอกรายละเอียดประสบการณ์ทำงาน');
     return {
       errors, jobId, titleSel, titleOther, name, birthDate, phone, province, startDate,
       canDriveCar, hasDriverLicense, hasCriminalRecord, criminalRecordDetail,
+      hasChronicDisease, chronicDiseaseDetail, workedAtKarabao, karabaoCompany,
       sourceChannel, sourceChannelOther, totalExperience, experience,
     };
   }
@@ -536,6 +555,10 @@
     fd.append('hasDriverLicense', fields.hasDriverLicense);
     fd.append('hasCriminalRecord', fields.hasCriminalRecord);
     fd.append('criminalRecordDetail', fields.hasCriminalRecord === 'true' ? fields.criminalRecordDetail : '');
+    fd.append('hasChronicDisease', fields.hasChronicDisease);
+    fd.append('chronicDiseaseDetail', fields.hasChronicDisease === 'true' ? fields.chronicDiseaseDetail : '');
+    fd.append('workedAtKarabao', fields.workedAtKarabao);
+    fd.append('karabaoCompany', fields.workedAtKarabao === 'true' ? fields.karabaoCompany : '');
     fd.append('sourceChannel', fields.sourceChannel);
     fd.append('sourceChannelOther', fields.sourceChannelOther);
     fd.append('totalExperience', fields.totalExperience);
@@ -574,7 +597,7 @@
       hideModal('pdpa-modal');
       showModal('success-modal');
       document.getElementById('apply-form').reset();
-      ['apply-title-other-wrap', 'apply-source-other-wrap', 'apply-criminal-detail-wrap'].forEach((id) => { document.getElementById(id).hidden = true; });
+      ['apply-title-other-wrap', 'apply-source-other-wrap', 'apply-criminal-detail-wrap', 'apply-chronic-detail-wrap', 'apply-karabao-company-wrap'].forEach((id) => { document.getElementById(id).hidden = true; });
       applyFormMsg('', '');
     } catch (err) {
       hideModal('pdpa-modal');
@@ -694,7 +717,7 @@
         <td>${app.startDate ? new Date(app.startDate).toLocaleDateString('th-TH') : '-'}</td>
         <td class="extra-info">${app.canDriveCar === null && app.hasDriverLicense === null && app.hasCriminalRecord === null && !app.totalExperience && !app.sourceChannel
           ? esc((app.availability || []).join(', ') || '-')
-          : `ขับรถยนต์: ${esc(yn(app.canDriveCar))}<br>ใบขับขี่: ${esc(yn(app.hasDriverLicense))}<br>ประวัติคดี: ${esc(yn(app.hasCriminalRecord))}${app.hasCriminalRecord && app.criminalRecordDetail ? ` (${esc(app.criminalRecordDetail)})` : ''}<br>ประสบการณ์รวม: ${esc(app.totalExperience || '-')}<br>รู้จักงานจาก: ${esc(app.sourceChannel || '-')}`}</td>
+          : `ขับรถยนต์: ${esc(yn(app.canDriveCar))}<br>ใบขับขี่: ${esc(yn(app.hasDriverLicense))}<br>ประวัติคดี: ${esc(yn(app.hasCriminalRecord))}${app.hasCriminalRecord && app.criminalRecordDetail ? ` (${esc(app.criminalRecordDetail)})` : ''}<br>โรคประจำตัว: ${esc(yn(app.hasChronicDisease))}${app.hasChronicDisease && app.chronicDiseaseDetail ? ` (${esc(app.chronicDiseaseDetail)})` : ''}<br>เคยทำงานเครือคาราบาว: ${esc(yn(app.workedAtKarabao))}${app.workedAtKarabao && app.karabaoCompany ? ` (${esc(app.karabaoCompany)})` : ''}<br>ประสบการณ์รวม: ${esc(app.totalExperience || '-')}<br>รู้จักงานจาก: ${esc(app.sourceChannel || '-')}`}</td>
         <td>
           <select class="status-select" data-action="app-status" data-id="${esc(app.id)}">
             ${STATUS_OPTIONS.map((s) => `<option value="${esc(s)}" ${app.status === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
@@ -1263,6 +1286,10 @@
       document.getElementById('apply-source-other-wrap').hidden = e.target.value !== 'อื่นๆ';
     } else if (e.target.name === 'apply-criminal') {
       document.getElementById('apply-criminal-detail-wrap').hidden = radioValue('apply-criminal') !== 'true';
+    } else if (e.target.name === 'apply-chronic') {
+      document.getElementById('apply-chronic-detail-wrap').hidden = radioValue('apply-chronic') !== 'true';
+    } else if (e.target.name === 'apply-karabao') {
+      document.getElementById('apply-karabao-company-wrap').hidden = radioValue('apply-karabao') !== 'true';
     }
   });
 
