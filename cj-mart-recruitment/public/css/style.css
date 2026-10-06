@@ -157,8 +157,11 @@ section{padding:2.6rem 0;}
 @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} }
 .field{display:flex;flex-direction:column;gap:.35rem;}
 .field.full{grid-column:1/-1;}
+.field[hidden]{display:none;}
 .field label{font-size:.85rem;font-weight:600;}
 .field .hint{font-size:.76rem;color:var(--text-muted);}
+.date-row{display:grid;grid-template-columns:1fr 1.6fr 1.2fr;gap:.6rem;}
+.extra-info{font-size:.8rem;line-height:1.5;min-width:210px;}
 .check-grid{display:flex;flex-wrap:wrap;gap:.6rem;}
 .check-pill{display:flex;align-items:center;gap:.4rem;font-size:.85rem;background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:.4rem .8rem;cursor:pointer;}
 .check-pill input{width:auto;}

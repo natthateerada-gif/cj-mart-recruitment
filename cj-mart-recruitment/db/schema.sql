@@ -39,6 +39,20 @@ CREATE TABLE IF NOT EXISTS applications (
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Application form v2 (title, birth date, LINE, province, driving/record questions,
+-- how they heard about the job, total experience). ADD COLUMN IF NOT EXISTS keeps
+-- this idempotent and safe on databases that already hold applications. The old
+-- `availability` column is kept for historical rows; `area` now stores the province.
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS title_prefix          TEXT DEFAULT '';
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS birth_date            DATE;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS line_id               TEXT DEFAULT '';
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS can_drive_car         BOOLEAN;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS has_driver_license    BOOLEAN;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS has_criminal_record   BOOLEAN;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS criminal_record_detail TEXT DEFAULT '';
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS source_channel        TEXT DEFAULT '';
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS total_experience      TEXT DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id);
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_applications_submitted_at ON applications(submitted_at);

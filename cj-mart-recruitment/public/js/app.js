@@ -65,7 +65,12 @@
   // State
   // ---------------------------------------------------------------------
   const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา'];
-  const AVAILABILITY_OPTIONS = ['กะเช้า', 'กะบ่าย', 'กะดึก', 'วันหยุด/สุดสัปดาห์', 'ยืดหยุ่นได้ทุกช่วงเวลา'];
+  const TITLE_OPTIONS = ['นาย', 'นาง', 'นางสาว', 'ว่าที่ ร.ต.', 'อื่นๆ'];
+  const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  const ANY_PROVINCE = 'เดินทางได้ทุกจังหวัด';
+  const PROVINCES = ["กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"];
+  const SOURCE_OPTIONS = ['Facebook', 'Tiktok', 'โฆษณา Facebook', 'ป้ายโฆษณา', 'เพื่อนแนะนำ', 'Jobthai', 'JobBkk', 'JobsDB', 'LinkedIn', 'Line', 'อื่นๆ'];
+  const EXPERIENCE_OPTIONS = ['ไม่มีประสบการณ์', 'น้อยกว่า 1 ปี', '1-2 ปี', '3-5 ปี', '6-10 ปี', 'มากกว่า 10 ปี'];
 
   const DEFAULT_FAQ_RULES = [
     { keywords: ['เงินเดือน', 'ค่าแรง', 'ค่าจ้าง', 'รายได้'], answer: 'เงินเดือน/ค่าแรงของแต่ละตำแหน่งจะแสดงไว้ในการ์ดตำแหน่งงานแต่ละใบค่ะ หากไม่ระบุ ทางบริษัทจะแจ้งอัตราที่แน่นอนในวันสัมภาษณ์' },
@@ -326,9 +331,24 @@
   // ---------------------------------------------------------------------
   // Apply form
   // ---------------------------------------------------------------------
+  function yesNoField(name, label) {
+    return `
+      <div class="field full">
+        <label>${label} <span class="required">*</span></label>
+        <div class="check-grid">
+          <label class="check-pill"><input type="radio" name="${name}" value="true"> ใช่</label>
+          <label class="check-pill"><input type="radio" name="${name}" value="false"> ไม่ใช่</label>
+        </div>
+      </div>`;
+  }
+
   function renderApply() {
     const el = document.getElementById('apply-content');
     const jobOptions = state.jobs.map((j) => `<option value="${esc(j.id)}">${esc(j.title)}</option>`).join('');
+    const beNow = new Date().getFullYear() + 543;
+    const dayOptions = Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+    const monthOptions = THAI_MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+    const yearOptions = Array.from({ length: 66 }, (_, i) => beNow - 15 - i).map((y) => `<option value="${y}">${y}</option>`).join('');
     el.innerHTML = `
       <div class="apply-shell">
         <form id="apply-form" novalidate>
@@ -341,36 +361,80 @@
               </select>
             </div>
             <div class="field">
+              <label for="apply-title">คำนำหน้าชื่อ <span class="required">*</span></label>
+              <select id="apply-title" required>
+                <option value="">-- เลือกคำนำหน้า --</option>
+                ${TITLE_OPTIONS.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field" id="apply-title-other-wrap" hidden>
+              <label for="apply-title-other">ระบุคำนำหน้า <span class="required">*</span></label>
+              <input id="apply-title-other" placeholder="เช่น ดร., พ.ต.ท.">
+            </div>
+            <div class="field">
               <label for="apply-name">ชื่อ-นามสกุล <span class="required">*</span></label>
               <input id="apply-name" required>
             </div>
+            <div class="field full">
+              <label>วัน/เดือน/ปีเกิด (พ.ศ.) <span class="required">*</span></label>
+              <div class="date-row">
+                <select id="apply-birth-day" aria-label="วัน"><option value="">วัน</option>${dayOptions}</select>
+                <select id="apply-birth-month" aria-label="เดือน"><option value="">เดือน</option>${monthOptions}</select>
+                <select id="apply-birth-year" aria-label="ปี พ.ศ."><option value="">ปี พ.ศ.</option>${yearOptions}</select>
+              </div>
+            </div>
             <div class="field">
-              <label for="apply-phone">เบอร์โทรศัพท์ <span class="required">*</span></label>
-              <input id="apply-phone" required placeholder="0812345678">
+              <label for="apply-phone">เบอร์โทรศัพท์ <span class="required">*</span> <span class="hint">(ตัวเลข 10 หลัก)</span></label>
+              <input id="apply-phone" type="tel" inputmode="numeric" maxlength="10" required placeholder="0812345678" autocomplete="tel">
             </div>
             <div class="field">
               <label for="apply-email">อีเมล</label>
               <input id="apply-email" type="email" placeholder="(ถ้ามี)">
             </div>
             <div class="field">
-              <label for="apply-area">พื้นที่/สาขาที่สะดวก</label>
-              <input id="apply-area" placeholder="เช่น เขตบางนา, จ.สมุทรปราการ">
+              <label for="apply-line">ID Line <span class="hint">(ไม่บังคับ)</span></label>
+              <input id="apply-line" placeholder="เช่น cjmart.hr">
+            </div>
+            <div class="field">
+              <label for="apply-province">จังหวัดที่สมัคร <span class="required">*</span></label>
+              <select id="apply-province" required>
+                <option value="">-- เลือกจังหวัด --</option>
+                <option value="${esc(ANY_PROVINCE)}">${esc(ANY_PROVINCE)}</option>
+                ${PROVINCES.map((pv) => `<option value="${esc(pv)}">${esc(pv)}</option>`).join('')}
+              </select>
             </div>
             <div class="field">
               <label for="apply-start-date">วันที่พร้อมเริ่มงาน <span class="required">*</span></label>
               <input id="apply-start-date" type="date" required>
             </div>
-            <div class="field full">
-              <label>เวลาที่สะดวกทำงาน <span class="required">*</span> <span class="hint">(เลือกได้มากกว่า 1)</span></label>
-              <div class="check-grid">
-                ${AVAILABILITY_OPTIONS.map((a, i) => `
-                  <label class="check-pill"><input type="checkbox" name="apply-availability" value="${esc(a)}" id="apply-avail-${i}"> ${esc(a)}</label>
-                `).join('')}
-              </div>
+            <div class="field">
+              <label for="apply-source">ช่องทางที่รับทราบประกาศสมัครงาน <span class="required">*</span></label>
+              <select id="apply-source" required>
+                <option value="">-- เลือกช่องทาง --</option>
+                ${SOURCE_OPTIONS.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field" id="apply-source-other-wrap" hidden>
+              <label for="apply-source-other">ระบุช่องทางอื่นๆ</label>
+              <input id="apply-source-other" placeholder="ระบุช่องทาง">
+            </div>
+            ${yesNoField('apply-can-drive', 'ขับรถยนต์ได้หรือไม่')}
+            ${yesNoField('apply-has-license', 'มีใบขับขี่รถยนต์หรือไม่')}
+            ${yesNoField('apply-criminal', 'เคยมีประวัติถูกดำเนินคดีมาก่อนหรือไม่')}
+            <div class="field full" id="apply-criminal-detail-wrap" hidden>
+              <label for="apply-criminal-detail">ระบุรายละเอียดคดี <span class="required">*</span></label>
+              <textarea id="apply-criminal-detail" placeholder="ระบุข้อหา/รายละเอียดคดี และผลของคดี"></textarea>
             </div>
             <div class="field full">
-              <label for="apply-experience">ประสบการณ์ทำงาน <span class="required">*</span></label>
-              <textarea id="apply-experience" required placeholder="เล่าประสบการณ์ทำงานที่ผ่านมาโดยย่อ (หากไม่มีประสบการณ์ ให้ระบุว่า &quot;ไม่มี&quot;)"></textarea>
+              <label for="apply-total-exp">จำนวนประสบการณ์ทำงานรวม <span class="required">*</span></label>
+              <select id="apply-total-exp" required>
+                <option value="">-- เลือกจำนวนประสบการณ์ --</option>
+                ${EXPERIENCE_OPTIONS.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field full">
+              <label for="apply-experience">รายละเอียดประสบการณ์ทำงาน <span class="required">*</span></label>
+              <textarea id="apply-experience" required placeholder="อธิบายงานที่เคยทำโดยย่อ (หากไม่มีประสบการณ์ ให้ระบุว่า &quot;ไม่มี&quot;)"></textarea>
             </div>
             <div class="field">
               <label for="apply-resume">แนบไฟล์ประวัติ/เรซูเม่ (PDF หรือรูปภาพ)</label>
@@ -397,33 +461,85 @@
     el.innerHTML = message ? `<div class="form-msg ${type}">${esc(message)}</div>` : '';
   }
 
+  function radioValue(name) {
+    const c = document.querySelector(`input[name="${name}"]:checked`);
+    return c ? c.value : '';
+  }
+
   function validateApplyForm() {
     const errors = [];
     const jobId = document.getElementById('apply-job').value;
+    const titleSel = document.getElementById('apply-title').value;
+    const titleOther = document.getElementById('apply-title-other').value.trim();
+    const titlePrefix = titleSel === 'อื่นๆ' ? titleOther : titleSel;
     const name = document.getElementById('apply-name').value.trim();
+    const day = parseInt(document.getElementById('apply-birth-day').value, 10);
+    const month = parseInt(document.getElementById('apply-birth-month').value, 10);
+    const yearBE = parseInt(document.getElementById('apply-birth-year').value, 10);
     const phone = document.getElementById('apply-phone').value.trim();
+    const province = document.getElementById('apply-province').value;
     const startDate = document.getElementById('apply-start-date').value;
+    const canDriveCar = radioValue('apply-can-drive');
+    const hasDriverLicense = radioValue('apply-has-license');
+    const hasCriminalRecord = radioValue('apply-criminal');
+    const criminalRecordDetail = document.getElementById('apply-criminal-detail').value.trim();
+    const sourceChannel = document.getElementById('apply-source').value;
+    const sourceChannelOther = document.getElementById('apply-source-other').value.trim();
+    const totalExperience = document.getElementById('apply-total-exp').value;
     const experience = document.getElementById('apply-experience').value.trim();
-    const availability = Array.from(document.querySelectorAll('input[name="apply-availability"]:checked')).map((c) => c.value);
+
+    // พ.ศ. -> ค.ศ., and make sure it is a real calendar date (e.g. not 31 Feb)
+    let birthDate = '';
+    if (day && month && yearBE) {
+      const y = yearBE - 543;
+      const dt = new Date(y, month - 1, day);
+      if (dt.getFullYear() === y && dt.getMonth() === month - 1 && dt.getDate() === day) {
+        birthDate = `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+
     if (!jobId) errors.push('กรุณาเลือกตำแหน่งที่สมัคร');
+    if (!titleSel) errors.push('กรุณาเลือกคำนำหน้าชื่อ');
+    else if (!titlePrefix) errors.push('กรุณาระบุคำนำหน้าชื่อ');
     if (!name) errors.push('กรุณากรอกชื่อ-นามสกุล');
-    if (!phone || !/^[0-9+\-\s]{9,15}$/.test(phone)) errors.push('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง');
+    if (!birthDate) errors.push('กรุณาเลือกวัน เดือน ปีเกิดให้ถูกต้อง');
+    if (!/^[0-9]{10}$/.test(phone)) errors.push('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+    if (!province) errors.push('กรุณาเลือกจังหวัดที่สมัคร');
     if (!startDate) errors.push('กรุณาเลือกวันที่พร้อมเริ่มงาน');
-    if (!experience) errors.push('กรุณากรอกประสบการณ์ทำงาน');
-    if (availability.length === 0) errors.push('กรุณาเลือกเวลาที่สะดวกทำงานอย่างน้อย 1 ช่วง');
-    return { errors, jobId, name, phone, startDate, experience, availability };
+    if (!canDriveCar) errors.push('กรุณาตอบคำถามว่าขับรถยนต์ได้หรือไม่');
+    if (!hasDriverLicense) errors.push('กรุณาตอบคำถามว่ามีใบขับขี่รถยนต์หรือไม่');
+    if (!hasCriminalRecord) errors.push('กรุณาตอบคำถามเรื่องประวัติถูกดำเนินคดี');
+    else if (hasCriminalRecord === 'true' && !criminalRecordDetail) errors.push('กรุณาระบุรายละเอียดคดี');
+    if (!sourceChannel) errors.push('กรุณาเลือกช่องทางที่รับทราบประกาศสมัครงาน');
+    if (!totalExperience) errors.push('กรุณาเลือกจำนวนประสบการณ์ทำงานรวม');
+    if (!experience) errors.push('กรุณากรอกรายละเอียดประสบการณ์ทำงาน');
+    return {
+      errors, jobId, titleSel, titleOther, name, birthDate, phone, province, startDate,
+      canDriveCar, hasDriverLicense, hasCriminalRecord, criminalRecordDetail,
+      sourceChannel, sourceChannelOther, totalExperience, experience,
+    };
   }
 
   function buildApplicationFormData(fields) {
     const fd = new FormData();
     fd.append('jobId', fields.jobId);
+    fd.append('titlePrefix', fields.titleSel);
+    fd.append('titlePrefixOther', fields.titleOther);
     fd.append('name', fields.name);
+    fd.append('birthDate', fields.birthDate);
     fd.append('phone', fields.phone);
     fd.append('email', document.getElementById('apply-email').value.trim());
-    fd.append('area', document.getElementById('apply-area').value.trim());
+    fd.append('lineId', document.getElementById('apply-line').value.trim());
+    fd.append('province', fields.province);
     fd.append('startDate', fields.startDate);
+    fd.append('canDriveCar', fields.canDriveCar);
+    fd.append('hasDriverLicense', fields.hasDriverLicense);
+    fd.append('hasCriminalRecord', fields.hasCriminalRecord);
+    fd.append('criminalRecordDetail', fields.hasCriminalRecord === 'true' ? fields.criminalRecordDetail : '');
+    fd.append('sourceChannel', fields.sourceChannel);
+    fd.append('sourceChannelOther', fields.sourceChannelOther);
+    fd.append('totalExperience', fields.totalExperience);
     fd.append('experience', fields.experience);
-    fields.availability.forEach((a) => fd.append('availability', a));
     const resumeFile = document.getElementById('apply-resume').files[0];
     const photoFile = document.getElementById('apply-photo').files[0];
     if (resumeFile) fd.append('resumeFile', resumeFile);
@@ -458,6 +574,7 @@
       hideModal('pdpa-modal');
       showModal('success-modal');
       document.getElementById('apply-form').reset();
+      ['apply-title-other-wrap', 'apply-source-other-wrap', 'apply-criminal-detail-wrap'].forEach((id) => { document.getElementById(id).hidden = true; });
       applyFormMsg('', '');
     } catch (err) {
       hideModal('pdpa-modal');
@@ -561,6 +678,8 @@
     return 'tone-blue';
   }
 
+  const yn = (v) => (v === true ? 'ใช่' : v === false ? 'ไม่ใช่' : '-');
+
   function renderAdminApplicants() {
     const a = state.admin;
     const jobOptions = a.jobsAll.map((j) => `<option value="${esc(j.id)}" ${a.filterJobId === j.id ? 'selected' : ''}>${esc(j.title)}</option>`).join('');
@@ -568,12 +687,14 @@
     const rows = a.applications.map((app) => `
       <tr>
         <td>${app.submittedAt ? new Date(app.submittedAt).toLocaleString('th-TH') : '-'}</td>
-        <td>${esc(app.name)}</td>
+        <td>${esc(((app.titlePrefix || '') + ' ' + app.name).trim())}${app.birthDate ? `<br><span class="hint">เกิด ${esc(new Date(app.birthDate).toLocaleDateString('th-TH'))}</span>` : ''}</td>
         <td>${esc(app.jobTitle)}</td>
-        <td>${esc(app.phone)}${app.email ? '<br>' + esc(app.email) : ''}</td>
-        <td>${esc(app.area || '-')}</td>
+        <td>${esc(app.phone)}${app.email ? '<br>' + esc(app.email) : ''}${app.lineId ? '<br>LINE: ' + esc(app.lineId) : ''}</td>
+        <td>${esc(app.province || app.area || '-')}</td>
         <td>${app.startDate ? new Date(app.startDate).toLocaleDateString('th-TH') : '-'}</td>
-        <td>${(app.availability || []).map(esc).join(', ')}</td>
+        <td class="extra-info">${app.canDriveCar === null && app.hasDriverLicense === null && app.hasCriminalRecord === null && !app.totalExperience && !app.sourceChannel
+          ? esc((app.availability || []).join(', ') || '-')
+          : `ขับรถยนต์: ${esc(yn(app.canDriveCar))}<br>ใบขับขี่: ${esc(yn(app.hasDriverLicense))}<br>ประวัติคดี: ${esc(yn(app.hasCriminalRecord))}${app.hasCriminalRecord && app.criminalRecordDetail ? ` (${esc(app.criminalRecordDetail)})` : ''}<br>ประสบการณ์รวม: ${esc(app.totalExperience || '-')}<br>รู้จักงานจาก: ${esc(app.sourceChannel || '-')}`}</td>
         <td>
           <select class="status-select" data-action="app-status" data-id="${esc(app.id)}">
             ${STATUS_OPTIONS.map((s) => `<option value="${esc(s)}" ${app.status === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
@@ -605,7 +726,7 @@
       </div>
       <div class="table-wrap">
         <table class="applicants">
-          <thead><tr><th>วันที่สมัคร</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>ติดต่อ</th><th>พื้นที่</th><th>วันเริ่มงาน</th><th>เวลาที่สะดวก</th><th>สถานะ</th><th>ไฟล์แนบ</th><th></th></tr></thead>
+          <thead><tr><th>วันที่สมัคร</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>ติดต่อ</th><th>จังหวัด</th><th>วันเริ่มงาน</th><th>ข้อมูลเพิ่มเติม</th><th>สถานะ</th><th>ไฟล์แนบ</th><th></th></tr></thead>
           <tbody>${rows || `<tr><td colspan="10"><div class="empty-state">ยังไม่มีใบสมัครในเงื่อนไขนี้</div></td></tr>`}</tbody>
         </table>
       </div>
@@ -1134,6 +1255,21 @@
   document.addEventListener('change', (e) => {
     if (e.target.dataset && e.target.dataset.action === 'app-status') {
       handleAppStatusChange(e);
+    }
+    // conditional fields on the application form
+    if (e.target.id === 'apply-title') {
+      document.getElementById('apply-title-other-wrap').hidden = e.target.value !== 'อื่นๆ';
+    } else if (e.target.id === 'apply-source') {
+      document.getElementById('apply-source-other-wrap').hidden = e.target.value !== 'อื่นๆ';
+    } else if (e.target.name === 'apply-criminal') {
+      document.getElementById('apply-criminal-detail-wrap').hidden = radioValue('apply-criminal') !== 'true';
+    }
+  });
+
+  // phone: digits only, max 10
+  document.addEventListener('input', (e) => {
+    if (e.target.id === 'apply-phone') {
+      e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
     }
   });
 
