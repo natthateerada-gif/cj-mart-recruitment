@@ -68,6 +68,9 @@
   const TITLE_OPTIONS = ['นาย', 'นาง', 'นางสาว', 'ว่าที่ ร.ต.', 'อื่นๆ'];
   const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
   const ANY_PROVINCE = 'เดินทางได้ทุกจังหวัด';
+  const MAX_FILE_BYTES = 5 * 1024 * 1024; // keep in sync with src/upload.js
+  const RESUME_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+  const PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
   const JOB_TYPES = ['งานประจำ', 'Part-time', 'สัญญาจ้าง', 'ฝึกงาน'];
   const WORK_DAYS = ['5 วัน/สัปดาห์', '6 วัน/สัปดาห์'];
   const PROVINCES = ["กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"];
@@ -443,10 +446,12 @@
             <div class="field">
               <label for="apply-resume">แนบไฟล์ประวัติ/เรซูเม่ (PDF หรือรูปภาพ)</label>
               <div class="file-drop">${icon('upload')} <input id="apply-resume" type="file" accept=".pdf,image/png,image/jpeg,image/webp,image/gif"></div>
+              <div class="file-error" id="apply-resume-error" role="alert" hidden></div>
             </div>
             <div class="field">
               <label for="apply-photo">แนบรูปถ่าย</label>
               <div class="file-drop">${icon('upload')} <input id="apply-photo" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div>
+              <div class="file-error" id="apply-photo-error" role="alert" hidden></div>
             </div>
           </div>
           <p class="size-note">ไฟล์แนบแต่ละไฟล์มีขนาดไม่เกิน 5MB</p>
@@ -591,7 +596,7 @@
       hideModal('pdpa-modal');
       showModal('success-modal');
       document.getElementById('apply-form').reset();
-      ['apply-title-other-wrap', 'apply-source-other-wrap', 'apply-criminal-detail-wrap', 'apply-chronic-detail-wrap', 'apply-karabao-company-wrap'].forEach((id) => { document.getElementById(id).hidden = true; });
+      ['apply-title-other-wrap', 'apply-source-other-wrap', 'apply-criminal-detail-wrap', 'apply-chronic-detail-wrap', 'apply-karabao-company-wrap', 'apply-resume-error', 'apply-photo-error'].forEach((id) => { document.getElementById(id).hidden = true; });
       applyFormMsg('', '');
     } catch (err) {
       hideModal('pdpa-modal');
@@ -1169,10 +1174,36 @@
   }
 
   // Banner images (admin)
+  // Returns a Thai error message when a chosen file is too big / the wrong
+  // type, or '' when it is fine. Mirrors the server-side limits in src/upload.js.
+  function fileProblem(file, allowedTypes, label) {
+    if (!file) return '';
+    if (file.size > MAX_FILE_BYTES) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      return `${label} "${file.name}" มีขนาด ${mb}MB เกินกำหนด (ไม่เกิน ${MAX_FILE_BYTES / (1024 * 1024)}MB) กรุณาลดขนาดไฟล์หรือเลือกไฟล์อื่น`;
+    }
+    if (!allowedTypes.includes(file.type)) {
+      return `${label} "${file.name}" ไม่ใช่ชนิดไฟล์ที่รองรับ`;
+    }
+    return '';
+  }
+
+  function checkApplyFile(input) {
+    const isPhoto = input.id === 'apply-photo';
+    const msg = fileProblem(input.files[0], isPhoto ? PHOTO_TYPES : RESUME_TYPES, isPhoto ? 'รูปถ่าย' : 'ไฟล์ประวัติ/เรซูเม่')
+      .replace(/ไม่ใช่ชนิดไฟล์ที่รองรับ$/, isPhoto ? 'ต้องเป็นไฟล์รูปภาพ (PNG/JPG/WEBP/GIF)' : 'ต้องเป็น PDF หรือรูปภาพ (PNG/JPG/WEBP/GIF)');
+    const errEl = document.getElementById(`${input.id}-error`);
+    if (msg) input.value = ''; // don't keep a file the server would reject
+    if (errEl) { errEl.textContent = msg; errEl.hidden = !msg; }
+    return msg;
+  }
+
   async function handleBannerUpload(e) {
     const file = e.target.files[0];
     e.target.value = '';
     if (!file) return;
+    const problem = fileProblem(file, PHOTO_TYPES, 'รูปแบนเนอร์');
+    if (problem) { toast(problem, 'error'); return; }
     const fd = new FormData();
     fd.append('image', file);
     try {
@@ -1275,6 +1306,8 @@
     // conditional fields on the application form
     if (e.target.id === 'apply-title') {
       document.getElementById('apply-title-other-wrap').hidden = e.target.value !== 'อื่นๆ';
+    } else if (e.target.id === 'apply-resume' || e.target.id === 'apply-photo') {
+      checkApplyFile(e.target);
     } else if (e.target.id === 'apply-source') {
       document.getElementById('apply-source-other-wrap').hidden = e.target.value !== 'อื่นๆ';
     } else if (e.target.name === 'apply-criminal') {

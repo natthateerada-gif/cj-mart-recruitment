@@ -14,7 +14,8 @@ can connect to it.
 - **Backend:** Node.js 18+, Express 5, PostgreSQL (via `pg`)
 - **Auth:** signed httpOnly cookie sessions for the admin panel (JWT), a
   separate static API key for server-to-server integration
-- **Uploads:** local disk storage (resume/photo), 5MB limit, PDF/PNG/JPG/WEBP/GIF only
+- **Uploads:** resume (PDF/image) and photo (image) are stored in PostgreSQL (`application_files`, BYTEA) so they survive hosts with an ephemeral disk; 5MB per file, enforced in the browser (with a clear warning) and again on the server
+- **Homepage banners:** stored in PostgreSQL (`banner_images.data`, BYTEA) so they survive hosts with an ephemeral disk; served from `/api/banner-images/:id/file`
 - **Frontend:** plain HTML/CSS/JS (no build step), served as static files by the same Express app
 
 ## Local setup
@@ -64,7 +65,7 @@ src/
   routes/         jobs, applications, faqRules, pdpa, adminAuth, integration
   utils/          id generation, CSV read/write, RMS webhook sender
 public/           the static frontend (index.html, css/, js/, assets/logo.png)
-uploads/          uploaded resumes/photos (gitignored; created at runtime)
+uploads/          legacy local uploads only (gitignored)
 ```
 
 ## API reference
@@ -208,14 +209,11 @@ Whichever host you settle on eventually, the setup is the same shape:
   (`ADMIN_PASSWORD_HASH` rather than the plain-text `ADMIN_PASSWORD` once
   this is more than a test; a real random `JWT_SECRET`; only fill in
   `INTEGRATION_API_KEY` / `RMS_WEBHOOK_URL` once the RMS exists).
-- Uploaded resume/photo files are written to local disk (`uploads/`) — this
-  needs a host with persistent disk storage (Render and Railway both have
-  this; a serverless platform like Vercel does not, since its functions have
-  no shared or persistent filesystem between requests — that host would need
-  `src/upload.js` switched to a cloud storage backend such as Vercel Blob or
-  S3 first). This wasn't needed for local development or the free-tier test
-  path above, so it hasn't been built in, but the swap is isolated to that
-  one file if a serverless host is ever the destination.
+- Uploaded resumes/photos and homepage banners are stored in PostgreSQL, so no
+  persistent disk is needed (hosts such as Render's free tier and serverless
+  platforms wipe or lack local disk). Files uploaded by an older version of this
+  app to the local `uploads/` folder are still downloadable if they exist on
+  disk. Keep an eye on database size: each file can be up to 5MB.
 
 ## Notes on this rebuild
 

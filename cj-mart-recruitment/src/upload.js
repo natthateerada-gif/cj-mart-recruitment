@@ -1,18 +1,14 @@
-const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const multer = require('multer');
 
+// Legacy only: older deployments stored resumes/photos on local disk in this
+// folder. New uploads are kept in memory and written to Postgres (see
+// routes/applications.js), because hosts like Render's free tier wipe the local
+// disk on every deploy/restart. UPLOAD_DIR is still read to serve old files.
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
-const BANNER_DIR = path.join(UPLOAD_DIR, 'banner');
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB per file
 
-// These directories aren't guaranteed to exist on a fresh checkout/deploy
-// (only uploads/.gitkeep is tracked in git), so create them at startup.
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-fs.mkdirSync(BANNER_DIR, { recursive: true });
-
-const ALLOWED_MIME = new Set([
+const DOC_AND_IMAGE_MIME = new Set([
   'application/pdf',
   'image/png',
   'image/jpeg',
@@ -22,41 +18,31 @@ const ALLOWED_MIME = new Set([
 
 const IMAGE_MIME = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).slice(0, 10);
-    cb(null, crypto.randomUUID() + ext);
-  },
-});
+function unsupported(file) {
+  const err = new Error('unsupported_file_type');
+  err.field = file.fieldname;
+  return err;
+}
 
+// Applicant attachments: resume = PDF or image, photo = image only.
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_BYTES },
   fileFilter: (req, file, cb) => {
-    if (ALLOWED_MIME.has(file.mimetype)) return cb(null, true);
-    cb(new Error('unsupported_file_type'));
+    const allowed = file.fieldname === 'photoFile' ? IMAGE_MIME : DOC_AND_IMAGE_MIME;
+    if (allowed.has(file.mimetype)) return cb(null, true);
+    cb(unsupported(file));
   },
 });
 
-// Separate storage/instance for homepage banner images: these live in their
-// own subfolder because they're served publicly (see server.js), unlike
-// resumes/photos which stay behind an admin-only download route.
-const bannerStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, BANNER_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).slice(0, 10);
-    cb(null, crypto.randomUUID() + ext);
-  },
-});
-
+// Homepage banner images (see routes/bannerImages.js).
 const bannerUpload = multer({
-  storage: bannerStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_BYTES },
   fileFilter: (req, file, cb) => {
     if (IMAGE_MIME.has(file.mimetype)) return cb(null, true);
-    cb(new Error('unsupported_file_type'));
+    cb(unsupported(file));
   },
 });
 
-module.exports = { upload, UPLOAD_DIR, MAX_FILE_BYTES, bannerUpload, BANNER_DIR };
+module.exports = { upload, UPLOAD_DIR, MAX_FILE_BYTES, bannerUpload };

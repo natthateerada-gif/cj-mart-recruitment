@@ -1,10 +1,11 @@
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const pool = require('../db');
 const { requireAdmin } = require('../auth');
 const { uid } = require('../utils/id');
 const { toCsv } = require('../utils/csv');
-const { upload, UPLOAD_DIR } = require('../upload');
+const { upload, UPLOAD_DIR, MAX_FILE_BYTES } = require('../upload');
 const { notifyRmsWebhook } = require('../utils/webhook');
 const { PROVINCES, ANY_PROVINCE } = require('../utils/provinces');
 
@@ -83,9 +84,35 @@ function rowToApplication(row, { includeFilePaths = false } = {}) {
 // Public: submit a new application (multipart/form-data with optional
 // resumeFile / photoFile). PDPA consent is re-validated server-side —
 // the frontend's own consent modal is not trusted on its own.
+// multer runs before the handler, so its rejections must be translated here
+// (a try/catch inside the handler never sees them). The messages name the file
+// so the applicant knows exactly which one to fix.
+function receiveFiles(req, res, next) {
+  upload.fields([{ name: 'resumeFile', maxCount: 1 }, { name: 'photoFile', maxCount: 1 }])(req, res, (err) => {
+    if (!err) return next();
+    const isPhoto = err.field === 'photoFile';
+    const label = isPhoto ? 'รูปถ่าย' : 'ไฟล์ประวัติ/เรซูเม่';
+    const maxMb = Math.round(MAX_FILE_BYTES / (1024 * 1024));
+    let message;
+    if (err.code === 'LIMIT_FILE_SIZE') message = `${label}มีขนาดใหญ่เกินกำหนด (ไม่เกิน ${maxMb}MB ต่อไฟล์) กรุณาลดขนาดไฟล์แล้วอัปโหลดใหม่`;
+    else if (err.message === 'unsupported_file_type') message = isPhoto ? 'รูปถ่ายต้องเป็นไฟล์รูปภาพ (PNG/JPG/WEBP/GIF)' : 'ไฟล์ประวัติ/เรซูเม่ต้องเป็น PDF หรือรูปภาพ (PNG/JPG/WEBP/GIF)';
+    else if (err.code === 'LIMIT_UNEXPECTED_FILE') message = 'พบไฟล์แนบที่ระบบไม่รองรับ';
+    if (message) return res.status(400).json({ error: 'validation', message });
+    return next(err);
+  });
+}
+
+// busboy decodes multipart filenames as latin1, which garbles Thai names; undo
+// that when the bytes are valid UTF-8.
+function fixFilename(name) {
+  if (!name) return name;
+  const fixed = Buffer.from(name, 'latin1').toString('utf8');
+  return fixed.includes('\ufffd') ? name : fixed;
+}
+
 router.post(
   '/api/applications',
-  upload.fields([{ name: 'resumeFile', maxCount: 1 }, { name: 'photoFile', maxCount: 1 }]),
+  receiveFiles,
   async (req, res, next) => {
     try {
       const b = req.body || {};
@@ -148,7 +175,13 @@ router.post(
       const resumeFile = files.resumeFile && files.resumeFile[0];
       const photoFile = files.photoFile && files.photoFile[0];
 
-      const { rows } = await pool.query(
+      // The application row and its attachments are saved together: either all
+      // of it lands or none of it does.
+      let rows;
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        ({ rows } = await client.query(
         `INSERT INTO applications
           (id, job_id, job_title, name, phone, email, area, start_date, availability, experience,
            resume_path, resume_original_name, resume_mime_type, photo_path, photo_original_name, photo_mime_type,
@@ -162,28 +195,34 @@ router.post(
         [
           id, job.id, job.title, name, phone, (b.email || '').trim(), province, startDate,
           [], experience,
-          resumeFile ? resumeFile.filename : null, resumeFile ? resumeFile.originalname : null, resumeFile ? resumeFile.mimetype : null,
-          photoFile ? photoFile.filename : null, photoFile ? photoFile.originalname : null, photoFile ? photoFile.mimetype : null,
+          resumeFile ? 'db' : null, resumeFile ? fixFilename(resumeFile.originalname) : null, resumeFile ? resumeFile.mimetype : null,
+          photoFile ? 'db' : null, photoFile ? fixFilename(photoFile.originalname) : null, photoFile ? photoFile.mimetype : null,
           'ใหม่', true,
           titlePrefix, birthDate, lineId, canDriveCar, hasDriverLicense, hasCriminalRecord,
           hasCriminalRecord ? criminalRecordDetail : '', sourceChannel, totalExperience,
           hasChronicDisease, hasChronicDisease ? chronicDiseaseDetail : '',
           workedAtKarabao, workedAtKarabao ? karabaoCompany : '',
         ]
-      );
+        ));
+        for (const [kind, f] of [['resume', resumeFile], ['photo', photoFile]]) {
+          if (!f) continue;
+          await client.query(
+            'INSERT INTO application_files (application_id, kind, data, mime_type, original_name) VALUES ($1,$2,$3,$4,$5)',
+            [id, kind, f.buffer, f.mimetype, fixFilename(f.originalname)]
+          );
+        }
+        await client.query('COMMIT');
+      } catch (txErr) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw txErr;
+      } finally {
+        client.release();
+      }
 
       const application = rowToApplication(rows[0]);
       notifyRmsWebhook('application.created', application);
       res.status(201).json({ ok: true, application });
-    } catch (err) {
-      if (err.message === 'unsupported_file_type') {
-        return res.status(400).json({ error: 'validation', message: 'รองรับเฉพาะไฟล์ PDF หรือรูปภาพ (PNG/JPG/WEBP/GIF)' });
-      }
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: 'validation', message: 'ไฟล์แนบมีขนาดใหญ่เกินไป (ไม่เกิน 5MB ต่อไฟล์)' });
-      }
-      next(err);
-    }
+    } catch (err) { next(err); }
   }
 );
 
@@ -238,11 +277,30 @@ router.delete('/api/admin/applications/:id', requireAdmin, async (req, res, next
 
 async function streamAttachment(req, res, next, kind) {
   try {
+    // Current storage: bytes in Postgres.
+    const { rows: fileRows } = await pool.query(
+      'SELECT data, mime_type, original_name FROM application_files WHERE application_id = $1 AND kind = $2',
+      [req.params.id, kind]
+    );
+    if (fileRows.length > 0) {
+      const f = fileRows[0];
+      const fallbackName = kind === 'resume' ? 'resume' : 'photo';
+      const fileName = f.original_name || fallbackName;
+      res.setHeader('Content-Type', f.mime_type || 'application/octet-stream');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Disposition', `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+      return res.send(f.data);
+    }
+    // Legacy: files written to local disk before attachments moved into Postgres.
     const col = kind === 'resume' ? 'resume_path' : 'photo_path';
     const nameCol = kind === 'resume' ? 'resume_original_name' : 'photo_original_name';
     const { rows } = await pool.query(`SELECT ${col} AS path, ${nameCol} AS name FROM applications WHERE id = $1`, [req.params.id]);
     if (rows.length === 0 || !rows[0].path) return res.status(404).json({ error: 'not_found' });
-    res.download(path.join(UPLOAD_DIR, rows[0].path), rows[0].name || rows[0].path);
+    const legacyPath = path.join(UPLOAD_DIR, path.basename(rows[0].path));
+    if (rows[0].path !== 'db' && fs.existsSync(legacyPath)) {
+      return res.download(legacyPath, rows[0].name || rows[0].path);
+    }
+    return res.status(404).type('text').send('ไม่พบไฟล์แนบนี้ (ไฟล์ที่อัปโหลดก่อนการปรับระบบถูกลบไปเมื่อเซิร์ฟเวอร์ deploy/restart) กรุณาขอให้ผู้สมัครส่งไฟล์ใหม่');
   } catch (err) { next(err); }
 }
 

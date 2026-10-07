@@ -215,6 +215,8 @@ select.status-select{width:auto;padding:.3rem .5rem;font-size:.8rem;border-radiu
 .toast.success{background:var(--success);color:#0d1f15;}
 .required{color:var(--danger);}
 .size-note{font-size:.75rem;color:var(--text-muted);margin-top:.6rem;}
+.file-error{margin-top:.4rem;padding:.5rem .7rem;border-radius:8px;background:var(--danger-tint);color:var(--danger);border:1px solid var(--danger);font-size:.8rem;line-height:1.45;}
+.file-error[hidden]{display:none;}
 .modal-backdrop{position:fixed;inset:0;background:rgba(15,10,4,.55);z-index:90;}
 .modal-backdrop[hidden]{display:none;}
 .modal{position:fixed;inset:0;z-index:91;display:flex;align-items:center;justify-content:center;padding:1rem;}

@@ -64,6 +64,21 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS work_location TEXT DEFAULT '';
 UPDATE jobs SET type = 'งานประจำ' WHERE type = 'เต็มเวลา';
 UPDATE jobs SET type = 'Part-time' WHERE type = 'พาร์ทไทม์';
 
+-- Applicant attachments (resume / photo) now live in Postgres instead of on the
+-- web server's disk, which Render's free tier wipes on every deploy/restart.
+-- applications.resume_path / photo_path stay as a "has file" marker ('db' for new
+-- rows; an old disk filename for legacy rows). Rows are removed with their
+-- application (ON DELETE CASCADE).
+CREATE TABLE IF NOT EXISTS application_files (
+  application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+  kind           TEXT NOT NULL CHECK (kind IN ('resume', 'photo')),
+  data           BYTEA NOT NULL,
+  mime_type      TEXT,
+  original_name  TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (application_id, kind)
+);
+
 CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id);
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_applications_submitted_at ON applications(submitted_at);
@@ -109,3 +124,13 @@ CREATE TABLE IF NOT EXISTS banner_images (
   display_order  INTEGER NOT NULL DEFAULT 0,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Banner v2: the image bytes now live in Postgres instead of on the web
+-- server's disk. Hosts like Render's free tier wipe the local disk on every
+-- deploy/restart, which left the DB rows pointing at files that no longer
+-- existed (broken banner). Legacy disk-based rows (data IS NULL) are already
+-- unrecoverable, so they are removed; admins just re-upload.
+ALTER TABLE banner_images ADD COLUMN IF NOT EXISTS data      BYTEA;
+ALTER TABLE banner_images ADD COLUMN IF NOT EXISTS mime_type TEXT;
+ALTER TABLE banner_images ALTER COLUMN filename DROP NOT NULL;
+DELETE FROM banner_images WHERE data IS NULL;
