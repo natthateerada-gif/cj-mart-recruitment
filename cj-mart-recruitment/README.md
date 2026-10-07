@@ -3,7 +3,7 @@
 A full-stack careers site for CJ Mart, organized as separate pages (real
 navigation, not just scroll anchors): a home page with a company overview and
 social media links, a job listings page, a dedicated application-form page
-with file uploads and PDPA consent, a keyword FAQ chatbot page, a page listing
+with file uploads and PDPA consent, a keyword FAQ chatbot (floating chat widget; rules are managed in the admin "ตั้งค่าแชทบอท" tab), a page listing
 HR staff to contact (since different staff cover different positions), and an
 admin panel — all backed by a real Node.js + Express + PostgreSQL API, with a
 dedicated integration surface so a future Recruitment Management System (RMS)

@@ -85,7 +85,7 @@
     { keywords: ['ตำแหน่ง', 'งานว่าง', 'เปิดรับ'], answer: 'ตำแหน่งงานที่เปิดรับสมัครอยู่ในขณะนี้แสดงอยู่ในส่วน "ตำแหน่งงาน" ด้านบนค่ะ หากตำแหน่งไหนปิดรับสมัครแล้วจะไม่แสดงในหน้านี้' },
   ];
 
-  const PAGES = ['home', 'jobs', 'apply', 'faq', 'contact', 'admin'];
+  const PAGES = ['home', 'jobs', 'apply', 'contact', 'admin'];
 
   const state = {
     page: 'home',
@@ -185,16 +185,6 @@
             <p>กรอกข้อมูลให้ครบถ้วน ทีมงานจะติดต่อกลับหากผ่านการพิจารณาเบื้องต้น</p></div>
           </div>
           <div id="apply-content"></div>
-        </div>
-      </section>
-
-      <section id="page-faq" hidden>
-        <div class="wrap">
-          <div class="section-head">
-            <div><div class="heading-row">${icon('message-circle', 'icon-badge tone-gold')}<h2>คำถามที่พบบ่อย</h2></div>
-            <p>คลิกคำถามเพื่อดูคำตอบ หรือพิมพ์ถามผู้ช่วยแชทมุมขวาล่างได้เลย</p></div>
-          </div>
-          <div id="faq-content" class="faq"></div>
         </div>
       </section>
 
@@ -615,19 +605,8 @@
   }
 
   // ---------------------------------------------------------------------
-  // FAQ + chatbot
+  // Chatbot (keyword rules: admin-added first, then built-in defaults)
   // ---------------------------------------------------------------------
-  function renderFaq() {
-    const el = document.getElementById('faq-content');
-    const all = state.faqRules.concat(DEFAULT_FAQ_RULES).slice(0, 8);
-    el.innerHTML = all.map((r) => `
-      <button type="button" class="faq-chip" data-action="chat-chip" data-q="${esc(r.keywords[0])}">
-        ${icon('tag', 'icon-badge sm tone-blue')}
-        <span class="txt"><b>${esc(r.keywords[0])}</b><span>${esc((r.answer || '').slice(0, 60))}${(r.answer || '').length > 60 ? '…' : ''}</span></span>
-      </button>
-    `).join('');
-  }
-
   function findFaqAnswer(question) {
     const q = question.toLowerCase();
     const all = state.faqRules.concat(DEFAULT_FAQ_RULES);
@@ -650,7 +629,7 @@
 
   function renderChatChips() {
     const chips = document.getElementById('chat-chips');
-    const sample = state.faqRules.concat(DEFAULT_FAQ_RULES).slice(0, 4);
+    const sample = state.faqRules.concat(DEFAULT_FAQ_RULES).slice(0, 8);
     chips.innerHTML = sample.map((r) => `<button type="button" class="chat-chip" data-action="chat-chip" data-q="${esc(r.keywords[0])}">${esc(r.keywords[0])}</button>`).join('');
   }
 
@@ -682,7 +661,7 @@
     const tabs = [
       ['applicants', 'ผู้สมัครงาน'],
       ['jobs', 'จัดการตำแหน่งงาน'],
-      ['faq', 'คำถามที่พบบ่อย'],
+      ['faq', 'ตั้งค่าแชทบอท'],
       ['pdpa', 'นโยบาย PDPA'],
       ['siteContent', 'ข้อมูลหน้าแรก'],
       ['hrContacts', 'ผู้ติดต่อ HR'],
@@ -806,10 +785,10 @@
     document.getElementById('admin-content').innerHTML = `
       ${adminTabsHtml()}
       <div class="admin-toolbar">
-        <span class="hint">คำถามที่เพิ่มไว้นี้จะถูกตรวจสอบก่อนคำถามเริ่มต้นของแชทบอทเสมอ</span>
-        <button type="button" class="btn btn-primary btn-sm" data-action="faq-new">${icon('plus')} เพิ่มคำถาม</button>
+        <span class="hint">คำตอบที่เพิ่มไว้นี้จะถูกตรวจสอบก่อนคำตอบเริ่มต้นของแชทบอทเสมอ และแสดงเป็นปุ่มลัดในแชท (สูงสุด 8 ข้อแรก)</span>
+        <button type="button" class="btn btn-primary btn-sm" data-action="faq-new">${icon('plus')} เพิ่มคำตอบแชทบอท</button>
       </div>
-      <div class="job-manage">${rows || `<div class="empty-state">ยังไม่มีคำถามที่เพิ่มเอง (ระบบจะใช้คำถามเริ่มต้นของแชทบอท)</div>`}</div>
+      <div class="job-manage">${rows || `<div class="empty-state">ยังไม่มีคำตอบที่เพิ่มเอง (ระบบจะใช้คำตอบเริ่มต้นของแชทบอท)</div>`}</div>
     `;
   }
 
@@ -1100,7 +1079,6 @@
 
   async function refreshFaqEverywhere() {
     state.faqRules = await api('/api/faq-rules');
-    renderFaq();
     renderChatChips();
     if (state.admin.loggedIn) {
       state.admin.faqRules = state.faqRules;
@@ -1371,8 +1349,8 @@
     renderBanner();
     renderJobs();
     renderApply();
-    renderFaq();
     renderContact();
+    renderChatChips(); // re-render now that admin-added rules are loaded
     showPage('home');
     await checkAdminSession();
   }

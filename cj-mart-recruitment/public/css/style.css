@@ -172,11 +172,6 @@ section{padding:2.6rem 0;}
 .form-msg.error{background:var(--danger-tint);color:var(--danger);}
 .form-msg.success{background:var(--success-tint);color:var(--success);}
 .form-msg.info{background:var(--info-tint);color:var(--info-dark);}
-.faq{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.8rem;}
-.faq-chip{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.9rem 1rem;font-size:.88rem;text-align:left;display:flex;gap:.7rem;align-items:flex-start;}
-.faq-chip .txt{display:flex;flex-direction:column;gap:.15rem;}
-.faq-chip b{display:block;font-size:.9rem;}
-.faq-chip span{color:var(--text-muted);}
 footer.site{border-top:1px solid var(--border);padding:2.4rem 0;margin-top:2rem;color:var(--text-muted);font-size:.85rem;}
 footer.site .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
 #chat-toggle{position:fixed;right:1.3rem;bottom:1.3rem;z-index:60;width:58px;height:58px;border-radius:50%;background:var(--info);color:#fff;border:none;box-shadow:var(--shadow);font-size:1.5rem;display:flex;align-items:center;justify-content:center;}
