@@ -24,3 +24,25 @@ INSERT INTO hr_contacts (id, name, coverage, phone, email, line_id, display_orde
   ('hr-1', 'คุณสมศรี ใจดี', 'พนักงานขายหน้าร้าน, แคชเชียร์, พนักงานสต๊อก', '081-234-5678', 'somsri.hr@cjmart.example', '@cjmart-somsri', 1),
   ('hr-2', 'คุณวิชัย มั่นคง', 'ผู้ช่วยผู้จัดการสาขา, ผู้จัดการสาขา', '082-345-6789', 'wichai.hr@cjmart.example', '@cjmart-wichai', 2)
 ON CONFLICT (id) DO NOTHING;
+
+-- Starter chatbot answers. Inserted ONCE (guarded by a marker row in settings),
+-- so admins can edit or delete them afterwards without them coming back on the
+-- next deploy.
+WITH marker AS (
+  INSERT INTO settings (key, value) VALUES ('faq_defaults_seeded', '1')
+  ON CONFLICT (key) DO NOTHING
+  RETURNING 1
+)
+INSERT INTO faq_rules (id, keywords, answer, created_at)
+SELECT v.id, v.keywords, v.answer, v.created_at FROM (VALUES
+  ('faq-default-1', ARRAY[$$เงินเดือน$$, $$ค่าแรง$$, $$ค่าจ้าง$$, $$รายได้$$]::text[], $$เงินเดือน/ค่าแรงของแต่ละตำแหน่งจะแสดงไว้ในการ์ดตำแหน่งงานแต่ละใบค่ะ หากไม่ระบุ ทางบริษัทจะแจ้งอัตราที่แน่นอนในวันสัมภาษณ์$$, now() + interval '1 milliseconds'),
+  ('faq-default-2', ARRAY[$$เวลาทำงาน$$, $$กะ$$, $$เข้างาน$$, $$ชั่วโมง$$]::text[], $$วันและเวลาทำงานของแต่ละตำแหน่งแสดงไว้ในการ์ดตำแหน่งงานค่ะ หากต้องการเลือกช่วงเวลาที่สะดวก สามารถระบุไว้ในใบสมัครได้เลย$$, now() + interval '2 milliseconds'),
+  ('faq-default-3', ARRAY[$$คุณสมบัติ$$, $$วุฒิ$$, $$อายุ$$, $$เพศ$$]::text[], $$คุณสมบัติเบื้องต้นระบุไว้ในแต่ละตำแหน่งงาน โดยทั่วไปรับสมัครอายุ 18 ปีขึ้นไป ไม่จำกัดเพศ และไม่จำเป็นต้องมีประสบการณ์มาก่อน (จะมีการฝึกอบรมให้)$$, now() + interval '3 milliseconds'),
+  ('faq-default-4', ARRAY[$$สมัคร$$, $$ขั้นตอน$$, $$วิธี$$]::text[], $$สมัครได้ง่าย ๆ โดยเลื่อนไปที่ส่วน "สมัครงาน" ด้านบน กรอกข้อมูลให้ครบ แนบไฟล์ประวัติ/รูปถ่าย (ถ้ามี) แล้วกดยืนยันความยินยอม PDPA ก่อนส่งใบสมัครได้เลยค่ะ$$, now() + interval '4 milliseconds'),
+  ('faq-default-5', ARRAY[$$สวัสดิการ$$, $$โบนัส$$, $$ประกันสังคม$$]::text[], $$พนักงาน CJ Mart จะได้รับสวัสดิการตามที่กฎหมายกำหนด เช่น ประกันสังคม รวมถึงสวัสดิการเพิ่มเติมตามตำแหน่งและสาขา รายละเอียดจะแจ้งในวันสัมภาษณ์ค่ะ$$, now() + interval '5 milliseconds'),
+  ('faq-default-6', ARRAY[$$ติดต่อ$$, $$เบอร์โทร$$, $$สอบถาม$$]::text[], $$หากต้องการสอบถามเพิ่มเติม สามารถฝากคำถามไว้ในแชทนี้ หรือรอเจ้าหน้าที่ติดต่อกลับหลังจากส่งใบสมัครได้เลยค่ะ$$, now() + interval '6 milliseconds'),
+  ('faq-default-7', ARRAY[$$pdpa$$, $$ข้อมูลส่วนบุคคล$$, $$ความเป็นส่วนตัว$$]::text[], $$ข้อมูลที่ท่านกรอกจะถูกเก็บและใช้เพื่อการพิจารณาสมัครงานเท่านั้น ตามนโยบาย PDPA ของบริษัท ซึ่งสามารถอ่านรายละเอียดได้ในหน้าต่างยืนยันความยินยอมก่อนส่งใบสมัครค่ะ$$, now() + interval '7 milliseconds'),
+  ('faq-default-8', ARRAY[$$ตำแหน่ง$$, $$งานว่าง$$, $$เปิดรับ$$]::text[], $$ตำแหน่งงานที่เปิดรับสมัครอยู่ในขณะนี้แสดงอยู่ในส่วน "ตำแหน่งงาน" ด้านบนค่ะ หากตำแหน่งไหนปิดรับสมัครแล้วจะไม่แสดงในหน้านี้$$, now() + interval '8 milliseconds')
+) AS v(id, keywords, answer, created_at)
+WHERE EXISTS (SELECT 1 FROM marker)
+ON CONFLICT (id) DO NOTHING;

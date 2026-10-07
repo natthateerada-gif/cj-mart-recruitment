@@ -77,17 +77,6 @@
   const SOURCE_OPTIONS = ['Facebook', 'Tiktok', 'โฆษณา Facebook', 'ป้ายโฆษณา', 'เพื่อนแนะนำ', 'Jobthai', 'JobBkk', 'JobsDB', 'LinkedIn', 'Line', 'อื่นๆ'];
   const EXPERIENCE_OPTIONS = ['ไม่มีประสบการณ์', 'น้อยกว่า 1 ปี', '1-2 ปี', '3-5 ปี', '6-10 ปี', 'มากกว่า 10 ปี'];
 
-  const DEFAULT_FAQ_RULES = [
-    { keywords: ['เงินเดือน', 'ค่าแรง', 'ค่าจ้าง', 'รายได้'], answer: 'เงินเดือน/ค่าแรงของแต่ละตำแหน่งจะแสดงไว้ในการ์ดตำแหน่งงานแต่ละใบค่ะ หากไม่ระบุ ทางบริษัทจะแจ้งอัตราที่แน่นอนในวันสัมภาษณ์' },
-    { keywords: ['เวลาทำงาน', 'กะ', 'เข้างาน', 'ชั่วโมง'], answer: 'สาขาส่วนใหญ่แบ่งเป็นกะเช้า กะบ่าย และกะดึก สามารถเลือกช่วงเวลาที่สะดวกได้ตอนกรอกใบสมัครเลยค่ะ' },
-    { keywords: ['คุณสมบัติ', 'วุฒิ', 'อายุ', 'เพศ'], answer: 'คุณสมบัติเบื้องต้นระบุไว้ในแต่ละตำแหน่งงาน โดยทั่วไปรับสมัครอายุ 18 ปีขึ้นไป ไม่จำกัดเพศ และไม่จำเป็นต้องมีประสบการณ์มาก่อน (จะมีการฝึกอบรมให้)' },
-    { keywords: ['สมัคร', 'ขั้นตอน', 'วิธี'], answer: 'สมัครได้ง่าย ๆ โดยเลื่อนไปที่ส่วน "สมัครงาน" ด้านบน กรอกข้อมูลให้ครบ แนบไฟล์ประวัติ/รูปถ่าย (ถ้ามี) แล้วกดยืนยันความยินยอม PDPA ก่อนส่งใบสมัครได้เลยค่ะ' },
-    { keywords: ['สวัสดิการ', 'โบนัส', 'ประกันสังคม'], answer: 'พนักงาน CJ Mart จะได้รับสวัสดิการตามที่กฎหมายกำหนด เช่น ประกันสังคม รวมถึงสวัสดิการเพิ่มเติมตามตำแหน่งและสาขา รายละเอียดจะแจ้งในวันสัมภาษณ์ค่ะ' },
-    { keywords: ['ติดต่อ', 'เบอร์โทร', 'สอบถาม'], answer: 'หากต้องการสอบถามเพิ่มเติม สามารถฝากคำถามไว้ในแชทนี้ หรือรอเจ้าหน้าที่ติดต่อกลับหลังจากส่งใบสมัครได้เลยค่ะ' },
-    { keywords: ['pdpa', 'ข้อมูลส่วนบุคคล', 'ความเป็นส่วนตัว'], answer: 'ข้อมูลที่ท่านกรอกจะถูกเก็บและใช้เพื่อการพิจารณาสมัครงานเท่านั้น ตามนโยบาย PDPA ของบริษัท ซึ่งสามารถอ่านรายละเอียดได้ในหน้าต่างยืนยันความยินยอมก่อนส่งใบสมัครค่ะ' },
-    { keywords: ['ตำแหน่ง', 'งานว่าง', 'เปิดรับ'], answer: 'ตำแหน่งงานที่เปิดรับสมัครอยู่ในขณะนี้แสดงอยู่ในส่วน "ตำแหน่งงาน" ด้านบนค่ะ หากตำแหน่งไหนปิดรับสมัครแล้วจะไม่แสดงในหน้านี้' },
-  ];
-
   const PAGES = ['home', 'jobs', 'apply', 'contact', 'admin'];
 
   const state = {
@@ -610,11 +599,11 @@
   }
 
   // ---------------------------------------------------------------------
-  // Chatbot (keyword rules: admin-added first, then built-in defaults)
+  // Chatbot (keyword rules, all managed by admins; the starter set is seeded into the DB once)
   // ---------------------------------------------------------------------
   function findFaqAnswer(question) {
     const q = question.toLowerCase();
-    const all = state.faqRules.concat(DEFAULT_FAQ_RULES);
+    const all = state.faqRules;
     for (const rule of all) {
       if (rule.keywords.some((k) => q.includes(String(k).toLowerCase()))) {
         return rule.answer;
@@ -634,7 +623,7 @@
 
   function renderChatChips() {
     const chips = document.getElementById('chat-chips');
-    const sample = state.faqRules.concat(DEFAULT_FAQ_RULES).slice(0, 8);
+    const sample = state.faqRules.slice(0, 8);
     chips.innerHTML = sample.map((r) => `<button type="button" class="chat-chip" data-action="chat-chip" data-q="${esc(r.keywords[0])}">${esc(r.keywords[0])}</button>`).join('');
   }
 
