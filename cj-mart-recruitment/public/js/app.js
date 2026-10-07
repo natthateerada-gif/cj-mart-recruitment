@@ -68,6 +68,8 @@
   const TITLE_OPTIONS = ['นาย', 'นาง', 'นางสาว', 'ว่าที่ ร.ต.', 'อื่นๆ'];
   const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
   const ANY_PROVINCE = 'เดินทางได้ทุกจังหวัด';
+  const JOB_TYPES = ['งานประจำ', 'Part-time', 'สัญญาจ้าง', 'ฝึกงาน'];
+  const WORK_DAYS = ['5 วัน/สัปดาห์', '6 วัน/สัปดาห์'];
   const PROVINCES = ["กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"];
   const SOURCE_OPTIONS = ['Facebook', 'Tiktok', 'โฆษณา Facebook', 'ป้ายโฆษณา', 'เพื่อนแนะนำ', 'Jobthai', 'JobBkk', 'JobsDB', 'LinkedIn', 'Line', 'อื่นๆ'];
   const EXPERIENCE_OPTIONS = ['ไม่มีประสบการณ์', 'น้อยกว่า 1 ปี', '1-2 ปี', '3-5 ปี', '6-10 ปี', 'มากกว่า 10 ปี'];
@@ -305,7 +307,9 @@
         <div class="job-card-head">${icon('box', 'icon-badge tone-green')}<h3>${esc(job.title)}</h3></div>
         <div class="job-tags">
           ${job.type ? `<span class="tag">${esc(job.type)}</span>` : ''}
+          ${job.workDays ? `<span class="tag">${esc(job.workDays)}</span>` : ''}
           ${job.shift ? `<span class="tag">${esc(job.shift)}</span>` : ''}
+          ${job.workLocation ? `<span class="tag">${esc(job.workLocation)}</span>` : ''}
           ${job.salaryRange ? `<span class="tag salary">${esc(job.salaryRange)}</span>` : ''}
         </div>
         <p class="summary">${esc(job.summary)}</p>
@@ -769,7 +773,7 @@
     const rows = a.jobsAll.map((j) => `
       <div class="job-manage-row">
         <div><strong>${esc(j.title)}</strong> <span class="status-pill ${j.open ? 'open' : 'closed'}">${j.open ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}</span><br>
-        <span class="hint">${esc(j.type)} · ${esc(j.shift)} · ${esc(j.salaryRange)}</span></div>
+        <span class="hint">${[j.type, j.workDays, j.shift, j.workLocation, j.salaryRange].filter(Boolean).map(esc).join(' · ')}</span></div>
         <div style="display:flex;gap:.4rem;">
           <button type="button" class="btn btn-ghost btn-sm" data-action="job-toggle" data-id="${esc(j.id)}">${j.open ? 'ปิดรับสมัคร' : 'เปิดรับสมัคร'}</button>
           <button type="button" class="btn btn-ghost btn-sm" data-action="job-edit" data-id="${esc(j.id)}">${icon('edit')}</button>
@@ -989,7 +993,16 @@
     document.getElementById('job-modal-title').textContent = job ? 'แก้ไขตำแหน่งงาน' : 'เพิ่มตำแหน่งงานใหม่';
     document.getElementById('job-form-id').value = job ? job.id : '';
     document.getElementById('job-form-title').value = job ? job.title : '';
-    document.getElementById('job-form-type').value = job ? job.type : '';
+    const optHtml = (list, placeholder) => `<option value="">${esc(placeholder)}</option>` + list.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+    const typeSel = document.getElementById('job-form-type');
+    typeSel.innerHTML = optHtml(JOB_TYPES, '-- เลือกประเภทงาน --');
+    typeSel.value = job && JOB_TYPES.includes(job.type) ? job.type : '';
+    const daysSel = document.getElementById('job-form-workdays');
+    daysSel.innerHTML = optHtml(WORK_DAYS, '-- เลือกวันทำงาน --');
+    daysSel.value = job && WORK_DAYS.includes(job.workDays) ? job.workDays : '';
+    const locSel = document.getElementById('job-form-location');
+    locSel.innerHTML = optHtml([ANY_PROVINCE].concat(PROVINCES), '-- เลือกสถานที่ปฏิบัติงาน --');
+    locSel.value = job && (job.workLocation === ANY_PROVINCE || PROVINCES.includes(job.workLocation)) ? job.workLocation : '';
     document.getElementById('job-form-shift').value = job ? job.shift : '';
     document.getElementById('job-form-salary').value = job ? job.salaryRange : '';
     document.getElementById('job-form-summary').value = job ? job.summary : '';
@@ -1003,6 +1016,8 @@
     const payload = {
       title: document.getElementById('job-form-title').value.trim(),
       type: document.getElementById('job-form-type').value.trim(),
+      workDays: document.getElementById('job-form-workdays').value.trim(),
+      workLocation: document.getElementById('job-form-location').value.trim(),
       shift: document.getElementById('job-form-shift').value.trim(),
       salaryRange: document.getElementById('job-form-salary').value.trim(),
       summary: document.getElementById('job-form-summary').value.trim(),

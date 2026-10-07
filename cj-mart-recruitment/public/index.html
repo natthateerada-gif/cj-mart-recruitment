@@ -82,8 +82,10 @@
         <input type="hidden" id="job-form-id">
         <div class="field"><label for="job-form-title">ชื่อตำแหน่ง <span class="required">*</span></label><input id="job-form-title" required></div>
         <div class="form-grid">
-          <div class="field"><label for="job-form-type">ประเภทงาน</label><input id="job-form-type" placeholder="เช่น พนักงานประจำสาขา"></div>
+          <div class="field"><label for="job-form-type">ประเภทงาน</label><select id="job-form-type" required></select></div>
+          <div class="field"><label for="job-form-workdays">วันทำงาน</label><select id="job-form-workdays"></select></div>
           <div class="field"><label for="job-form-shift">กะเวลาทำงาน</label><input id="job-form-shift" placeholder="เช่น กะเช้า/กะบ่าย"></div>
+          <div class="field"><label for="job-form-location">สถานที่ปฏิบัติงาน (จังหวัด)</label><select id="job-form-location"></select></div>
         </div>
         <div class="field"><label for="job-form-salary">ช่วงเงินเดือน</label><input id="job-form-salary" placeholder="เช่น 12,000 - 15,000 บาท"></div>
         <div class="field"><label for="job-form-summary">รายละเอียดงาน</label><textarea id="job-form-summary"></textarea></div>

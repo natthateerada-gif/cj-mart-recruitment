@@ -51,7 +51,7 @@ router.get('/api/integration/jobs', requireIntegrationKey, async (req, res, next
   try {
     const { rows } = await pool.query('SELECT * FROM jobs ORDER BY created_at ASC');
     res.json(rows.map((r) => ({
-      id: r.id, title: r.title, type: r.type, shift: r.shift, salaryRange: r.salary_range,
+      id: r.id, title: r.title, type: r.type, workDays: r.work_days || '', shift: r.shift, workLocation: r.work_location || '', salaryRange: r.salary_range,
       summary: r.summary, requirements: r.requirements, open: r.is_open,
       createdAt: r.created_at, updatedAt: r.updated_at,
     })));

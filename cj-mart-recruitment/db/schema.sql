@@ -57,6 +57,13 @@ ALTER TABLE applications ADD COLUMN IF NOT EXISTS karabao_company        TEXT DE
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS source_channel        TEXT DEFAULT '';
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS total_experience      TEXT DEFAULT '';
 
+-- Job details v2: working days per week and work location (province).
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS work_days     TEXT DEFAULT '';
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS work_location TEXT DEFAULT '';
+-- Map the two exact legacy free-text job types onto the new dropdown values (idempotent).
+UPDATE jobs SET type = 'งานประจำ' WHERE type = 'เต็มเวลา';
+UPDATE jobs SET type = 'Part-time' WHERE type = 'พาร์ทไทม์';
+
 CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id);
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_applications_submitted_at ON applications(submitted_at);

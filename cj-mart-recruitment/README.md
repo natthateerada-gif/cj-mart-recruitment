@@ -92,7 +92,7 @@ by the browser once logged in).
 | `POST /api/admin/logout` | Clears session cookie |
 | `GET /api/admin/session` | `{ loggedIn }` |
 | `GET /api/admin/jobs` | All jobs, including closed |
-| `POST /api/admin/jobs` | Create a job |
+| `POST /api/admin/jobs` | Create a job. Fields: `title` (required), `type` (`งานประจำ`/`Part-time`/`สัญญาจ้าง`/`ฝึกงาน`), `workDays` (`5 วัน/สัปดาห์`/`6 วัน/สัปดาห์`), `shift`, `workLocation` (`เดินทางได้ทุกจังหวัด` or one of the 77 provinces), `salaryRange`, `summary`, `requirements` |
 | `PATCH /api/admin/jobs/:id` | Update any subset of job fields, including `open` (true/false) |
 | `DELETE /api/admin/jobs/:id` | Delete a job |
 | `GET /api/admin/export/jobs.csv` | Download all jobs as CSV |

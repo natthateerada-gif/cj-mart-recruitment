@@ -3,15 +3,35 @@ const pool = require('../db');
 const { requireAdmin } = require('../auth');
 const { newJobId } = require('../utils/id');
 const { toCsv, parseCsv } = require('../utils/csv');
+const { ANY_PROVINCE, PROVINCES } = require('../utils/provinces');
 
 const router = express.Router();
+
+const JOB_TYPES = ['งานประจำ', 'Part-time', 'สัญญาจ้าง', 'ฝึกงาน'];
+const WORK_DAYS = ['5 วัน/สัปดาห์', '6 วัน/สัปดาห์'];
+const isValidLocation = (v) => v === ANY_PROVINCE || PROVINCES.includes(v);
+
+// Validates the dropdown-backed job fields. Only fields present in `b` are
+// checked (so PATCH {open:true} keeps working). Empty / 'ไม่ระบุ' is allowed so
+// older jobs created before these dropdowns existed can still be saved.
+function validateJobFields(b) {
+  const errors = [];
+  const has = (k) => Object.prototype.hasOwnProperty.call(b, k);
+  const clean = (k) => String(b[k] == null ? '' : b[k]).trim();
+  if (has('type') && clean('type') && clean('type') !== 'ไม่ระบุ' && !JOB_TYPES.includes(clean('type'))) errors.push('ประเภทงานไม่ถูกต้อง (งานประจำ / Part-time / สัญญาจ้าง / ฝึกงาน)');
+  if (has('workDays') && clean('workDays') && !WORK_DAYS.includes(clean('workDays'))) errors.push('วันทำงานต้องเป็น 5 วัน หรือ 6 วัน ต่อสัปดาห์');
+  if (has('workLocation') && clean('workLocation') && !isValidLocation(clean('workLocation'))) errors.push('สถานที่ปฏิบัติงานต้องเป็นจังหวัดในประเทศไทย หรือ เดินทางได้ทุกจังหวัด');
+  return errors;
+}
 
 function rowToJob(row) {
   return {
     id: row.id,
     title: row.title,
     type: row.type,
+    workDays: row.work_days || '',
     shift: row.shift,
+    workLocation: row.work_location || '',
     salaryRange: row.salary_range,
     summary: row.summary,
     requirements: row.requirements,
@@ -40,13 +60,15 @@ router.post('/api/admin/jobs', requireAdmin, async (req, res, next) => {
     const b = req.body || {};
     const title = (b.title || '').trim();
     if (!title) return res.status(400).json({ error: 'validation', message: 'กรุณากรอกชื่อตำแหน่งงาน' });
+    const fieldErrors = validateJobFields(b);
+    if (fieldErrors.length) return res.status(400).json({ error: 'validation', message: fieldErrors.join(' / ') });
     const id = newJobId();
     const { rows } = await pool.query(
-      `INSERT INTO jobs (id, title, type, shift, salary_range, summary, requirements, is_open)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,true) RETURNING *`,
+      `INSERT INTO jobs (id, title, type, shift, salary_range, summary, requirements, is_open, work_days, work_location)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,true,$8,$9) RETURNING *`,
       [id, title, (b.type || '').trim() || 'ไม่ระบุ', (b.shift || '').trim() || 'ไม่ระบุ',
        (b.salaryRange || '').trim() || 'แจ้งในวันสัมภาษณ์', (b.summary || '').trim() || '-',
-       (b.requirements || '').trim() || '-']
+       (b.requirements || '').trim() || '-', (b.workDays || '').trim(), (b.workLocation || '').trim()]
     );
     res.status(201).json(rowToJob(rows[0]));
   } catch (err) { next(err); }
@@ -56,10 +78,12 @@ router.patch('/api/admin/jobs/:id', requireAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
     const b = req.body || {};
+    const fieldErrors = validateJobFields(b);
+    if (fieldErrors.length) return res.status(400).json({ error: 'validation', message: fieldErrors.join(' / ') });
     const fields = [];
     const values = [];
     let i = 1;
-    const map = { title: 'title', type: 'type', shift: 'shift', salaryRange: 'salary_range', summary: 'summary', requirements: 'requirements', open: 'is_open' };
+    const map = { title: 'title', type: 'type', workDays: 'work_days', workLocation: 'work_location', shift: 'shift', salaryRange: 'salary_range', summary: 'summary', requirements: 'requirements', open: 'is_open' };
     Object.keys(map).forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(b, key)) {
         fields.push(`${map[key]} = $${i}`);
@@ -93,7 +117,9 @@ router.get('/api/admin/export/jobs.csv', requireAdmin, async (req, res, next) =>
       { label: 'id', value: 'id' },
       { label: 'title', value: 'title' },
       { label: 'type', value: 'type' },
+      { label: 'workDays', value: 'workDays' },
       { label: 'shift', value: 'shift' },
+      { label: 'workLocation', value: 'workLocation' },
       { label: 'salaryRange', value: 'salaryRange' },
       { label: 'summary', value: 'summary' },
       { label: 'requirements', value: 'requirements' },
@@ -119,14 +145,14 @@ router.post('/api/admin/import/jobs', requireAdmin, express.text({ type: '*/*', 
       const isOpen = openVal === '' ? true : (openVal === 'TRUE' || openVal === '1' || openVal === 'YES');
       if (r.id) {
         const { rowCount } = await pool.query(
-          `UPDATE jobs SET title=$1, type=$2, shift=$3, salary_range=$4, summary=$5, requirements=$6, is_open=$7, updated_at=now() WHERE id=$8`,
-          [title, r.type || 'ไม่ระบุ', r.shift || 'ไม่ระบุ', r.salaryRange || 'แจ้งในวันสัมภาษณ์', r.summary || '-', r.requirements || '-', isOpen, r.id]
+          `UPDATE jobs SET title=$1, type=$2, shift=$3, salary_range=$4, summary=$5, requirements=$6, is_open=$7, work_days=$8, work_location=$9, updated_at=now() WHERE id=$10`,
+          [title, r.type || 'ไม่ระบุ', r.shift || 'ไม่ระบุ', r.salaryRange || 'แจ้งในวันสัมภาษณ์', r.summary || '-', r.requirements || '-', isOpen, r.workDays || '', r.workLocation || '', r.id]
         );
         if (rowCount > 0) { updated += 1; continue; }
       }
       await pool.query(
-        `INSERT INTO jobs (id, title, type, shift, salary_range, summary, requirements, is_open) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [newJobId(), title, r.type || 'ไม่ระบุ', r.shift || 'ไม่ระบุ', r.salaryRange || 'แจ้งในวันสัมภาษณ์', r.summary || '-', r.requirements || '-', isOpen]
+        `INSERT INTO jobs (id, title, type, shift, salary_range, summary, requirements, is_open, work_days, work_location) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [newJobId(), title, r.type || 'ไม่ระบุ', r.shift || 'ไม่ระบุ', r.salaryRange || 'แจ้งในวันสัมภาษณ์', r.summary || '-', r.requirements || '-', isOpen, r.workDays || '', r.workLocation || '']
       );
       created += 1;
     }
