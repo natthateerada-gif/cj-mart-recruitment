@@ -18,19 +18,43 @@ router.get('/api/faq-rules', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Shared by create + edit: keywords must be a non-empty list, answer non-empty.
+function parseRuleBody(body) {
+  const { keywords, answer } = body || {};
+  const kws = Array.isArray(keywords) ? keywords.map((k) => String(k).trim()).filter(Boolean) : [];
+  const ans = (answer || '').trim();
+  return { kws, ans, valid: kws.length > 0 && !!ans };
+}
+
+const RULE_VALIDATION_MESSAGE = 'กรุณากรอกคำสำคัญอย่างน้อย 1 คำ และคำตอบ';
+
 router.post('/api/admin/faq-rules', requireAdmin, async (req, res, next) => {
   try {
-    const { keywords, answer } = req.body || {};
-    const kws = Array.isArray(keywords) ? keywords.map((k) => String(k).trim()).filter(Boolean) : [];
-    const ans = (answer || '').trim();
-    if (kws.length === 0 || !ans) {
-      return res.status(400).json({ error: 'validation', message: 'กรุณากรอกคำสำคัญอย่างน้อย 1 คำ และคำตอบ' });
+    const { kws, ans, valid } = parseRuleBody(req.body);
+    if (!valid) {
+      return res.status(400).json({ error: 'validation', message: RULE_VALIDATION_MESSAGE });
     }
     const { rows } = await pool.query(
       'INSERT INTO faq_rules (id, keywords, answer) VALUES ($1,$2,$3) RETURNING *',
       [uid(), kws, ans]
     );
     res.status(201).json(rowToRule(rows[0]));
+  } catch (err) { next(err); }
+});
+
+// Edit an existing rule in place (keeps its position in the list).
+router.patch('/api/admin/faq-rules/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { kws, ans, valid } = parseRuleBody(req.body);
+    if (!valid) {
+      return res.status(400).json({ error: 'validation', message: RULE_VALIDATION_MESSAGE });
+    }
+    const { rows } = await pool.query(
+      'UPDATE faq_rules SET keywords = $1, answer = $2 WHERE id = $3 RETURNING *',
+      [kws, ans, req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'not_found', message: 'ไม่พบคำตอบนี้ (อาจถูกลบไปแล้ว)' });
+    res.json(rowToRule(rows[0]));
   } catch (err) { next(err); }
 });
 

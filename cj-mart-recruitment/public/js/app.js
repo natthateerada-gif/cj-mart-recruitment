@@ -205,7 +205,7 @@
         <div class="wrap">
           <div class="section-head">
             <div><div class="heading-row">${icon('shield', 'icon-badge tone-red')}<h2>สำหรับแอดมิน</h2></div>
-            <p>เข้าสู่ระบบเพื่อจัดการใบสมัคร ตำแหน่งงาน คำถามที่พบบ่อย นโยบาย PDPA ข้อมูลหน้าแรก และผู้ติดต่อ HR</p></div>
+            <p>เข้าสู่ระบบเพื่อจัดการใบสมัคร ตำแหน่งงาน แชทบอท นโยบาย PDPA ข้อมูลหน้าแรก และผู้ติดต่อ HR</p></div>
           </div>
           <div id="admin-content"></div>
         </div>
@@ -782,9 +782,12 @@
   function renderAdminFaq() {
     const a = state.admin;
     const rows = a.faqRules.map((r) => `
-      <div class="job-manage-row">
-        <div><strong>${esc(r.keywords.join(', '))}</strong><br><span class="hint">${esc(r.answer)}</span></div>
-        <button type="button" class="btn btn-danger btn-sm" data-action="faq-delete" data-id="${esc(r.id)}">${icon('trash')}</button>
+      <div class="job-manage-row faq-rule-row">
+        <div class="faq-rule-text"><strong>${esc(r.keywords.join(', '))}</strong><br><span class="hint">${esc(r.answer)}</span></div>
+        <div class="faq-rule-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="faq-edit" data-id="${esc(r.id)}" aria-label="แก้ไข">${icon('edit')}</button>
+          <button type="button" class="btn btn-danger btn-sm" data-action="faq-delete" data-id="${esc(r.id)}" aria-label="ลบ">${icon('trash')}</button>
+        </div>
       </div>
     `).join('');
     document.getElementById('admin-content').innerHTML = `
@@ -1055,9 +1058,11 @@
   }
 
   // FAQ (admin)
-  function openFaqModal() {
-    document.getElementById('faq-form-keywords').value = '';
-    document.getElementById('faq-form-answer').value = '';
+  function openFaqModal(rule) {
+    document.getElementById('faq-modal-title').textContent = rule ? 'แก้ไขคำตอบแชทบอท' : 'เพิ่มคำตอบให้แชทบอท';
+    document.getElementById('faq-form-id').value = rule ? rule.id : '';
+    document.getElementById('faq-form-keywords').value = rule ? rule.keywords.join(', ') : '';
+    document.getElementById('faq-form-answer').value = rule ? rule.answer : '';
     showModal('faq-modal');
   }
 
@@ -1065,10 +1070,12 @@
     e.preventDefault();
     const keywords = document.getElementById('faq-form-keywords').value.split(',').map((s) => s.trim()).filter(Boolean);
     const answer = document.getElementById('faq-form-answer').value.trim();
+    const id = document.getElementById('faq-form-id').value;
     try {
-      await api('/api/admin/faq-rules', { method: 'POST', body: { keywords, answer } });
+      if (id) await api(`/api/admin/faq-rules/${id}`, { method: 'PATCH', body: { keywords, answer } });
+      else await api('/api/admin/faq-rules', { method: 'POST', body: { keywords, answer } });
       hideModal('faq-modal');
-      toast('เพิ่มคำถามแล้ว', 'success');
+      toast(id ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มคำตอบแล้ว', 'success');
       await refreshFaqEverywhere();
     } catch (err) { toast(err.message, 'error'); }
   }
@@ -1279,7 +1286,9 @@
     } else if (action === 'job-form-cancel') {
       hideModal('job-modal');
     } else if (action === 'faq-new') {
-      openFaqModal();
+      openFaqModal(null);
+    } else if (action === 'faq-edit') {
+      openFaqModal(state.admin.faqRules.find((r) => r.id === actionEl.dataset.id));
     } else if (action === 'faq-delete') {
       handleFaqDelete(actionEl.dataset.id);
     } else if (action === 'faq-form-cancel') {
