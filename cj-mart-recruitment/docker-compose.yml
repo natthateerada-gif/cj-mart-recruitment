@@ -1,0 +1,40 @@
+# Local / staging stack: the app + a throwaway PostgreSQL.
+#   cp .env.example .env      (fill in JWT_SECRET and an admin password)
+#   docker compose up --build
+#   open http://localhost:3000
+#
+# In production IT can ignore the "db" service and point DATABASE_URL at the
+# company PostgreSQL instead.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cjmart
+      POSTGRES_PASSWORD: cjmart-local-only
+      POSTGRES_DB: cjmart
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cjmart -d cjmart"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Overrides whatever is in .env so the compose stack always talks to its own db.
+      DATABASE_URL: postgresql://cjmart:cjmart-local-only@db:5432/cjmart
+      PGSSL: "false"
+      COOKIE_SECURE: "false"   # plain http://localhost
+      SEED_SAMPLE_DATA: "1"    # demo data for local testing only
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  dbdata:

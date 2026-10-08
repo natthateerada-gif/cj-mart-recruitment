@@ -9,6 +9,8 @@ admin panel — all backed by a real Node.js + Express + PostgreSQL API, with a
 dedicated integration surface so a future Recruitment Management System (RMS)
 can connect to it.
 
+> **ส่งมอบให้ IT / deploy ด้วย Docker:** ดู [DEPLOYMENT.md](DEPLOYMENT.md) (Dockerfile, docker-compose, ตัวแปร environment, health check, backup/restore)
+
 ## Stack
 
 - **Backend:** Node.js 18+, Express 5, PostgreSQL (via `pg`)

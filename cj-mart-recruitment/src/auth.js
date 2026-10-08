@@ -24,12 +24,21 @@ async function verifyAdminPassword(candidate) {
   throw new Error('Neither ADMIN_PASSWORD nor ADMIN_PASSWORD_HASH is set in .env.');
 }
 
+// The session cookie is "Secure" (HTTPS only) in production. If the site is served
+// over plain HTTP on an internal network, set COOKIE_SECURE=false or admin login
+// will appear to succeed but the browser will drop the cookie.
+function cookieSecure() {
+  if (process.env.COOKIE_SECURE === 'true') return true;
+  if (process.env.COOKIE_SECURE === 'false') return false;
+  return process.env.NODE_ENV === 'production';
+}
+
 function issueAdminSession(res) {
   const token = jwt.sign({ role: 'admin' }, getSecret(), { expiresIn: TOKEN_TTL });
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: cookieSecure(),
     maxAge: 12 * 60 * 60 * 1000,
   });
 }
