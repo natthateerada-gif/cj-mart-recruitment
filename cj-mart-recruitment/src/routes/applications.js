@@ -36,7 +36,7 @@ function parseBirthDate(v) {
   return v;
 }
 
-const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา'];
+const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา', 'ไม่สนใจงาน', 'Blacklist'];
 
 function rowToApplication(row, { includeFilePaths = false } = {}) {
   const out = {
@@ -229,12 +229,28 @@ router.post(
 // Admin: list applications with optional filters + pagination.
 router.get('/api/admin/applications', requireAdmin, async (req, res, next) => {
   try {
-    const { jobId, status, page = '1', pageSize = '50' } = req.query;
+    const { jobId, status, q, page = '1', pageSize = '50' } = req.query;
     const conditions = [];
     const values = [];
     let i = 1;
     if (jobId) { conditions.push(`job_id = $${i}`); values.push(jobId); i += 1; }
     if (status) { conditions.push(`status = $${i}`); values.push(status); i += 1; }
+    // Keyword search: every word (space-separated, max 5) must match at least one of
+    // name / phone / email / LINE ID / province / job title / source channel.
+    // Phone numbers also match when typed without dashes or spaces.
+    const words = String(q || '').trim().slice(0, 100).split(/\s+/).filter(Boolean).slice(0, 5);
+    for (const word of words) {
+      const like = `%${word.replace(/[\\%_]/g, '\\$&')}%`;
+      const fields = ['name', 'phone', 'email', 'line_id', 'area', 'job_title', 'source_channel'];
+      const parts = fields.map((f) => `${f} ILIKE $${i}`);
+      values.push(like); i += 1;
+      const digits = word.replace(/\D/g, '');
+      if (digits.length >= 3) {
+        parts.push(`regexp_replace(phone, '\\D', '', 'g') LIKE $${i}`);
+        values.push(`%${digits}%`); i += 1;
+      }
+      conditions.push(`(${parts.join(' OR ')})`);
+    }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const limit = Math.min(parseInt(pageSize, 10) || 50, 200);
     const offset = (Math.max(parseInt(page, 10) || 1, 1) - 1) * limit;

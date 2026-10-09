@@ -212,6 +212,10 @@ select.status-select{width:auto;padding:.3rem .5rem;font-size:.8rem;border-radiu
 .faq-rule-row .faq-rule-actions{display:flex;gap:.4rem;flex-shrink:0;}
 .job-manage-row{display:flex;align-items:center;justify-content:space-between;gap:.8rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.6rem .9rem;flex-wrap:wrap;}
 .empty-state{text-align:center;padding:2.4rem 1rem;color:var(--text-muted);}
+.admin-search{display:flex;gap:.4rem;align-items:center;flex-wrap:nowrap;}
+.admin-search input[type=search]{width:17rem;max-width:100%;}
+.admin-search .btn{white-space:nowrap;}
+@media (max-width:760px){.admin-search{flex-wrap:wrap;width:100%;}.admin-search input[type=search]{width:100%;}}
 .pager{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;margin-top:1rem;}
 .pager-info{color:var(--text-muted);font-size:.92rem;}
 .pager-nav{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}

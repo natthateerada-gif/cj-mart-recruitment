@@ -64,7 +64,7 @@
   // ---------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------
-  const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา'];
+  const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา', 'ไม่สนใจงาน', 'Blacklist'];
   const TITLE_OPTIONS = ['นาย', 'นาง', 'นางสาว', 'ว่าที่ ร.ต.', 'อื่นๆ'];
   const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
   const ANY_PROVINCE = 'เดินทางได้ทุกจังหวัด';
@@ -93,7 +93,7 @@
       tab: 'applicants',
       loginError: '',
       applications: [], total: 0, page: 1, pageSize: 20,
-      filterJobId: '', filterStatus: '',
+      filterJobId: '', filterStatus: '', search: '',
       jobsAll: [],
       faqRules: [],
       pdpa: { policyText: '', consentText: '' },
@@ -711,13 +711,18 @@
     document.getElementById('admin-content').innerHTML = `
       ${adminTabsHtml()}
       <div class="stat-row">
-        <div class="stat-card">${icon('users', 'icon-badge tone-blue')}<div><strong>${a.total}</strong><span>ใบสมัครทั้งหมด</span></div></div>
+        <div class="stat-card">${icon('users', 'icon-badge tone-blue')}<div><strong>${a.total}</strong><span>${a.search || a.filterJobId || a.filterStatus ? 'ใบสมัครที่ตรงเงื่อนไข' : 'ใบสมัครทั้งหมด'}</span></div></div>
         <div class="stat-card">${icon('briefcase', 'icon-badge tone-green')}<div><strong>${a.jobsAll.filter((j) => j.open).length}</strong><span>ตำแหน่งเปิดรับ</span></div></div>
       </div>
       <div class="admin-toolbar">
         <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
           <select id="admin-filter-job" style="width:auto;"><option value="">ทุกตำแหน่ง</option>${jobOptions}</select>
           <select id="admin-filter-status" style="width:auto;"><option value="">ทุกสถานะ</option>${statusOptions}</select>
+          <form id="admin-search-form" class="admin-search" role="search">
+            <input type="search" id="admin-search" value="${esc(a.search)}" placeholder="ค้นหา ชื่อ / เบอร์โทร / อีเมล / LINE / จังหวัด / ตำแหน่ง" maxlength="100" aria-label="ค้นหาใบสมัคร" autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-sm">${icon('search')} ค้นหา</button>
+            ${a.search ? `<button type="button" class="btn btn-ghost btn-sm" id="admin-search-clear">ล้าง</button>` : ''}
+          </form>
         </div>
         <div style="display:flex;gap:.5rem;">
           <a class="btn btn-ghost btn-sm" href="/api/admin/export/applicants.csv">${icon('download')} CSV</a>
@@ -727,7 +732,7 @@
       <div class="table-wrap">
         <table class="applicants">
           <thead><tr><th>วันที่สมัคร</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>ติดต่อ</th><th>จังหวัด</th><th>วันเริ่มงาน</th><th>ข้อมูลเพิ่มเติม</th><th>สถานะ</th><th>ไฟล์แนบ</th><th></th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="10"><div class="empty-state">ยังไม่มีใบสมัครในเงื่อนไขนี้</div></td></tr>`}</tbody>
+          <tbody>${rows || `<tr><td colspan="10"><div class="empty-state">${a.search ? `ไม่พบใบสมัครที่ตรงกับ “${esc(a.search)}”` : 'ยังไม่มีใบสมัครในเงื่อนไขนี้'}</div></td></tr>`}</tbody>
         </table>
       </div>
       ${applicantsPagerHtml()}
@@ -737,6 +742,20 @@
       state.admin.page = 1;
       loadAdminApplications();
     });
+    document.getElementById('admin-search-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      state.admin.search = document.getElementById('admin-search').value.trim();
+      state.admin.page = 1;
+      loadAdminApplications();
+    });
+    const clearBtn = document.getElementById('admin-search-clear');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        state.admin.search = '';
+        state.admin.page = 1;
+        loadAdminApplications();
+      });
+    }
     document.getElementById('admin-filter-status').addEventListener('change', (e) => {
       state.admin.filterStatus = e.target.value;
       state.admin.page = 1;
@@ -921,6 +940,7 @@
     const params = new URLSearchParams();
     if (state.admin.filterJobId) params.set('jobId', state.admin.filterJobId);
     if (state.admin.filterStatus) params.set('status', state.admin.filterStatus);
+    if (state.admin.search) params.set('q', state.admin.search);
     params.set('page', state.admin.page);
     params.set('pageSize', state.admin.pageSize);
     const data = await api(`/api/admin/applications?${params.toString()}`);
