@@ -92,7 +92,7 @@
       loggedIn: false,
       tab: 'applicants',
       loginError: '',
-      applications: [], total: 0, page: 1, pageSize: 50,
+      applications: [], total: 0, page: 1, pageSize: 20,
       filterJobId: '', filterStatus: '',
       jobsAll: [],
       faqRules: [],
@@ -730,15 +730,51 @@
           <tbody>${rows || `<tr><td colspan="10"><div class="empty-state">ยังไม่มีใบสมัครในเงื่อนไขนี้</div></td></tr>`}</tbody>
         </table>
       </div>
+      ${applicantsPagerHtml()}
     `;
     document.getElementById('admin-filter-job').addEventListener('change', (e) => {
       state.admin.filterJobId = e.target.value;
+      state.admin.page = 1;
       loadAdminApplications();
     });
     document.getElementById('admin-filter-status').addEventListener('change', (e) => {
       state.admin.filterStatus = e.target.value;
+      state.admin.page = 1;
       loadAdminApplications();
     });
+  }
+
+  // Page numbers to show: always first/last, the current page and its neighbours,
+  // with "…" for the gaps (e.g. 1 … 4 5 [6] 7 8 … 20).
+  function pagerItems(current, last) {
+    const keep = new Set([1, last, current - 1, current, current + 1]);
+    if (current <= 3) { keep.add(2); keep.add(3); }
+    if (current >= last - 2) { keep.add(last - 1); keep.add(last - 2); }
+    const nums = [...keep].filter((n) => n >= 1 && n <= last).sort((x, y) => x - y);
+    const out = [];
+    nums.forEach((n, i) => {
+      if (i > 0 && n - nums[i - 1] > 1) out.push('gap');
+      out.push(n);
+    });
+    return out;
+  }
+
+  function applicantsPagerHtml() {
+    const a = state.admin;
+    if (a.total === 0) return '';
+    const last = Math.max(1, Math.ceil(a.total / a.pageSize));
+    const from = (a.page - 1) * a.pageSize + 1;
+    const to = Math.min(a.page * a.pageSize, a.total);
+    const summary = `<span class="pager-info">แสดง ${from}–${to} จากทั้งหมด ${a.total} ใบสมัคร</span>`;
+    if (last === 1) return `<div class="pager">${summary}</div>`;
+    const btn = (label, page, { disabled = false, current = false, aria = '' } = {}) =>
+      `<button type="button" class="btn ${current ? 'btn-primary' : 'btn-ghost'} btn-sm pager-btn" data-action="app-page" data-pg="${page}"${disabled ? ' disabled' : ''}${current ? ' aria-current="page"' : ''}${aria ? ` aria-label="${esc(aria)}"` : ''}>${label}</button>`;
+    const numbers = pagerItems(a.page, last).map((n) => (n === 'gap'
+      ? '<span class="pager-gap" aria-hidden="true">…</span>'
+      : btn(n, n, { current: n === a.page, aria: `หน้า ${n}` }))).join('');
+    return `<div class="pager">${summary}<nav class="pager-nav" aria-label="เลือกหน้าผู้สมัคร">
+      ${btn('‹ ก่อนหน้า', a.page - 1, { disabled: a.page <= 1 })}${numbers}${btn('ถัดไป ›', a.page + 1, { disabled: a.page >= last })}
+    </nav></div>`;
   }
 
   function renderAdminJobs() {
@@ -890,6 +926,13 @@
     const data = await api(`/api/admin/applications?${params.toString()}`);
     state.admin.applications = data.applications;
     state.admin.total = data.total;
+    // The page we asked for no longer exists (e.g. the last row on the last page
+    // was deleted): go back to the new last page.
+    const lastPage = Math.max(1, Math.ceil(data.total / state.admin.pageSize));
+    if (state.admin.page > lastPage) {
+      state.admin.page = lastPage;
+      return loadAdminApplications();
+    }
     renderAdminApplicants();
   }
 
@@ -1260,6 +1303,15 @@
       state.admin.tab = actionEl.dataset.tab;
       if (state.admin.tab === 'applicants') loadAdminApplications();
       else renderAdmin();
+    } else if (action === 'app-page') {
+      const target = parseInt(actionEl.dataset.pg, 10);
+      if (Number.isFinite(target) && target >= 1 && !actionEl.disabled) {
+        state.admin.page = target;
+        loadAdminApplications().then(() => {
+          const tbl = document.querySelector('.table-wrap');
+          if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }).catch((err) => toast(err.message, 'error'));
+      }
     } else if (action === 'admin-logout') {
       handleAdminLogout();
     } else if (action === 'app-delete') {
