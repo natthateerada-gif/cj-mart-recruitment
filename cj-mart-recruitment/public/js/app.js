@@ -298,8 +298,8 @@
         <details class="job-details">
           <summary>รายละเอียดตำแหน่งงาน</summary>
           <div class="job-details-body">
-            ${job.summary ? `<p class="summary">${esc(job.summary)}</p>` : ''}
-            ${job.requirements ? `<p class="req">${esc(job.requirements)}</p>` : ''}
+            ${job.summary ? `<div class="job-section"><h4>รายละเอียดงาน</h4><p class="summary">${esc(job.summary)}</p></div>` : ''}
+            ${job.requirements ? `<div class="job-section"><h4>คุณสมบัติ</h4><p class="req">${esc(job.requirements)}</p></div>` : ''}
           </div>
         </details>` : ''}
         <div class="row-end">
