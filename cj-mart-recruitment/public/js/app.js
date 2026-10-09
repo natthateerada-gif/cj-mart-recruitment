@@ -955,7 +955,7 @@
     document.getElementById('admin-content').innerHTML = `
       ${adminTabsHtml()}
       <div class="admin-toolbar">
-        <span class="hint">ภาพที่เพิ่มไว้นี้จะหมุนแสดงเป็นแบนเนอร์บนหน้าแรก (แนะนำภาพแนวนอน ขนาดไม่เกิน 5MB)</span>
+        <span class="hint">ภาพที่เพิ่มไว้นี้จะหมุนแสดงเป็นแบนเนอร์บนหน้าแรก<br><strong>ขนาดแนะนำ 1920 × 640 พิกเซล (สัดส่วน 3:1)</strong> ไฟล์ JPG/WebP ไม่เกิน 5MB · วางข้อความสำคัญไว้กลางภาพ (ในมือถือขอบซ้าย-ขวาจะถูกตัดบางส่วน) · ภาพที่สัดส่วนไม่ใช่ 3:1 จะถูกตัดขอบให้พอดีกรอบ</span>
         <label class="btn btn-primary btn-sm" style="cursor:pointer;">${icon('upload')} เพิ่มรูปแบนเนอร์<input type="file" id="banner-upload-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;"></label>
       </div>
       <div class="banner-thumb-grid">${cards || `<div class="empty-state">ยังไม่มีรูปแบนเนอร์ — อัปโหลดรูปแรกได้เลย</div>`}</div>
