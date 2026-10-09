@@ -9,6 +9,7 @@ const { router: applicationsRouter } = require('./routes/applications');
 const faqRulesRouter = require('./routes/faqRules');
 const pdpaRouter = require('./routes/pdpa');
 const adminAuthRouter = require('./routes/adminAuth');
+const adminUsersRouter = require('./routes/adminUsers');
 const integrationRouter = require('./routes/integration');
 const siteContentRouter = require('./routes/siteContent');
 const hrContactsRouter = require('./routes/hrContacts');
@@ -60,6 +61,7 @@ if (allowedOrigins.length > 0) {
 }
 
 app.use(adminAuthRouter);
+app.use(adminUsersRouter);
 app.use(jobsRouter);
 app.use(applicationsRouter);
 app.use(faqRulesRouter);

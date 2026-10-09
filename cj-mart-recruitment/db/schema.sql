@@ -134,3 +134,17 @@ ALTER TABLE banner_images ADD COLUMN IF NOT EXISTS data      BYTEA;
 ALTER TABLE banner_images ADD COLUMN IF NOT EXISTS mime_type TEXT;
 ALTER TABLE banner_images ALTER COLUMN filename DROP NOT NULL;
 DELETE FROM banner_images WHERE data IS NULL;
+
+-- Personal admin accounts (in addition to the shared owner password in .env).
+-- All accounts have the same access, including adding / removing other accounts.
+CREATE TABLE IF NOT EXISTS admin_users (
+  id             TEXT PRIMARY KEY,
+  email          TEXT NOT NULL,
+  name           TEXT NOT NULL,
+  password_hash  TEXT NOT NULL,
+  active         BOOLEAN NOT NULL DEFAULT true,
+  last_login_at  TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS admin_users_email_key ON admin_users (lower(email));

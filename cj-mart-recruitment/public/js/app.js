@@ -56,7 +56,7 @@
   }
   function hideModal(id) {
     document.getElementById(id).hidden = true;
-    const anyOpen = ['pdpa-modal', 'success-modal', 'job-modal', 'faq-modal', 'hr-contact-modal', 'app-edit-modal']
+    const anyOpen = ['pdpa-modal', 'success-modal', 'job-modal', 'faq-modal', 'hr-contact-modal', 'app-edit-modal', 'user-modal', 'my-password-modal']
       .some((mid) => mid !== id && !document.getElementById(mid).hidden);
     if (!anyOpen) document.getElementById('modal-backdrop').hidden = true;
   }
@@ -90,6 +90,8 @@
     chat: { history: [] },
     admin: {
       loggedIn: false,
+      user: null,
+      users: [],
       tab: 'applicants',
       loginError: '',
       applications: [], total: 0, page: 1, pageSize: 20,
@@ -647,8 +649,9 @@
       <div class="admin-gate">
         ${icon('lock', 'icon-badge tone-red')}
         <h3>เข้าสู่ระบบแอดมิน</h3>
-        <p>กรอกรหัสผ่านเพื่อจัดการใบสมัครและตำแหน่งงาน</p>
+        <p>เข้าสู่ระบบด้วยอีเมลและรหัสผ่านของคุณ เพื่อจัดการใบสมัครและตำแหน่งงาน</p>
         <form id="admin-login-form">
+          <input id="admin-email" type="email" placeholder="อีเมล (เว้นว่างถ้าใช้รหัสผ่านกลาง)" autocomplete="username">
           <input id="admin-password" type="password" placeholder="รหัสผ่านแอดมิน" required autocomplete="current-password">
           ${state.admin.loginError ? `<div class="form-msg error">${esc(state.admin.loginError)}</div>` : ''}
           <button type="submit" class="btn btn-primary btn-block">เข้าสู่ระบบ</button>
@@ -666,13 +669,18 @@
       ['siteContent', 'ข้อมูลหน้าแรก'],
       ['hrContacts', 'ผู้ติดต่อ HR'],
       ['bannerImages', 'แบนเนอร์หน้าแรก'],
+      ['adminUsers', 'ผู้ดูแลระบบ'],
     ];
     return `
       <div class="admin-toolbar">
         <div class="admin-tabs">
           ${tabs.map(([key, label]) => `<button type="button" class="admin-tab${state.admin.tab === key ? ' active' : ''}" data-action="admin-tab" data-tab="${key}">${esc(label)}</button>`).join('')}
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" data-action="admin-logout">${icon('log-out')} ออกจากระบบ</button>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+          ${state.admin.user ? `<span class="hint" title="${esc(state.admin.user.email)}">${icon('users')} ${esc(state.admin.user.name)}</span>` : ''}
+          ${state.admin.user && !state.admin.user.isOwner ? `<button type="button" class="btn btn-ghost btn-sm" data-action="my-password-open">${icon('lock')} เปลี่ยนรหัสผ่าน</button>` : ''}
+          <button type="button" class="btn btn-ghost btn-sm" data-action="admin-logout">${icon('log-out')} ออกจากระบบ</button>
+        </div>
       </div>
     `;
   }
@@ -963,6 +971,7 @@
     else if (state.admin.tab === 'siteContent') renderAdminSiteContent();
     else if (state.admin.tab === 'hrContacts') renderAdminHrContacts();
     else if (state.admin.tab === 'bannerImages') renderAdminBannerImages();
+    else if (state.admin.tab === 'adminUsers') renderAdminUsers();
     else renderAdminApplicants();
   }
 
@@ -1006,8 +1015,9 @@
 
   async function checkAdminSession() {
     try {
-      const { loggedIn } = await api('/api/admin/session');
+      const { loggedIn, user } = await api('/api/admin/session');
       state.admin.loggedIn = loggedIn;
+      state.admin.user = user || null;
       if (loggedIn) await loadAdminData();
       else renderAdmin();
     } catch (e) {
@@ -1018,9 +1028,11 @@
   async function handleAdminLogin(e) {
     e.preventDefault();
     const password = document.getElementById('admin-password').value;
+    const email = document.getElementById('admin-email').value.trim();
     try {
-      await api('/api/admin/login', { method: 'POST', body: { password } });
+      const res = await api('/api/admin/login', { method: 'POST', body: { email, password } });
       state.admin.loggedIn = true;
+      state.admin.user = res.user || null;
       state.admin.loginError = '';
       await loadAdminData();
       toast('เข้าสู่ระบบสำเร็จ', 'success');
@@ -1033,6 +1045,8 @@
   async function handleAdminLogout() {
     await api('/api/admin/logout', { method: 'POST' });
     state.admin.loggedIn = false;
+    state.admin.user = null;
+    state.admin.tab = 'applicants';
     renderAdmin();
     toast('ออกจากระบบแล้ว', 'info');
   }
@@ -1198,6 +1212,104 @@
       errBox.textContent = err.message;
       errBox.hidden = false;
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // Admin accounts (every account has the same access)
+  // ---------------------------------------------------------------------
+  async function loadAdminUsers() {
+    try {
+      state.admin.users = await api('/api/admin/users');
+    } catch (err) { toast(err.message, 'error'); }
+    renderAdminUsers();
+  }
+
+  function renderAdminUsers() {
+    const me = state.admin.user || {};
+    const fmt = (iso) => (iso ? new Date(iso).toLocaleString('th-TH') : 'ยังไม่เคยเข้าสู่ระบบ');
+    const rows = state.admin.users.map((u) => `
+      <div class="job-manage-row">
+        <div>
+          <strong>${esc(u.name)}</strong>${u.id === me.id ? ' <span class="status-pill open">คุณ</span>' : ''}${u.active ? '' : ' <span class="status-pill closed">ปิดการใช้งาน</span>'}<br>
+          <span class="hint">${esc(u.email)} · เข้าสู่ระบบล่าสุด: ${esc(fmt(u.lastLoginAt))}</span>
+        </div>
+        <div style="display:flex;gap:.4rem;">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="user-edit" data-id="${esc(u.id)}" title="แก้ไข" aria-label="แก้ไข">${icon('edit')}</button>
+          ${u.id === me.id ? '' : `<button type="button" class="btn btn-danger btn-sm" data-action="user-delete" data-id="${esc(u.id)}" title="ลบ" aria-label="ลบ">${icon('trash')}</button>`}
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('admin-content').innerHTML = `
+      ${adminTabsHtml()}
+      <div class="admin-toolbar">
+        <span class="hint">ทุกบัญชีมีสิทธิ์เท่ากัน เพิ่ม/แก้ไข/ลบบัญชีแอดมินคนอื่นได้ · เข้าสู่ระบบด้วยอีเมล + รหัสผ่านของตัวเอง (รหัสผ่านกลางของระบบยังใช้ได้เสมอ โดยเว้นช่องอีเมลว่าง)</span>
+        <button type="button" class="btn btn-primary btn-sm" data-action="user-new">${icon('plus')} เพิ่มแอดมิน</button>
+      </div>
+      <div class="job-manage">${rows || `<div class="empty-state">ยังไม่มีบัญชีแอดมินส่วนตัว — กด “เพิ่มแอดมิน” เพื่อสร้างบัญชีแรก</div>`}</div>
+    `;
+  }
+
+  function openUserModal(user) {
+    const $ = (id) => document.getElementById(id);
+    $('user-modal-title').textContent = user ? 'แก้ไขบัญชีแอดมิน' : 'เพิ่มแอดมิน';
+    $('user-form').dataset.id = user ? user.id : '';
+    $('user-form-name').value = user ? user.name : '';
+    $('user-form-email').value = user ? user.email : '';
+    $('user-form-password').value = '';
+    $('user-form-password').required = !user;
+    $('user-form-password-label').firstChild.textContent = user ? 'ตั้งรหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)' : 'รหัสผ่าน';
+    $('user-form-active-wrap').hidden = !user || user.id === (state.admin.user || {}).id;
+    $('user-form-active').checked = user ? user.active : true;
+    $('user-form-error').hidden = true;
+    showModal('user-modal');
+  }
+
+  async function handleUserFormSubmit(e) {
+    e.preventDefault();
+    const $ = (id) => document.getElementById(id);
+    const id = $('user-form').dataset.id;
+    const body = { name: $('user-form-name').value, email: $('user-form-email').value };
+    const pw = $('user-form-password').value;
+    if (pw || !id) body.password = pw;
+    if (id && !$('user-form-active-wrap').hidden) body.active = $('user-form-active').checked;
+    try {
+      if (id) await api(`/api/admin/users/${id}`, { method: 'PATCH', body });
+      else await api('/api/admin/users', { method: 'POST', body });
+      hideModal('user-modal');
+      toast(id ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มแอดมินแล้ว', 'success');
+      await loadAdminUsers();
+    } catch (err) {
+      $('user-form-error').textContent = err.message;
+      $('user-form-error').hidden = false;
+    }
+  }
+
+  async function handleUserDelete(id) {
+    const u = state.admin.users.find((x) => x.id === id);
+    if (!u || !confirm(`ยืนยันลบบัญชีแอดมิน “${u.name}” (${u.email})?\nคนนี้จะเข้าสู่ระบบไม่ได้อีก`)) return;
+    try {
+      await api(`/api/admin/users/${id}`, { method: 'DELETE' });
+      toast('ลบบัญชีแล้ว', 'success');
+      await loadAdminUsers();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  function openMyPasswordModal() {
+    ['mp-current', 'mp-new', 'mp-new2'].forEach((id) => { document.getElementById(id).value = ''; });
+    document.getElementById('mp-error').hidden = true;
+    showModal('my-password-modal');
+  }
+
+  async function handleMyPasswordSubmit(e) {
+    e.preventDefault();
+    const $ = (id) => document.getElementById(id);
+    const err = (m) => { $('mp-error').textContent = m; $('mp-error').hidden = false; };
+    if ($('mp-new').value !== $('mp-new2').value) return err('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน');
+    try {
+      await api('/api/admin/me/password', { method: 'POST', body: { currentPassword: $('mp-current').value, newPassword: $('mp-new').value } });
+      hideModal('my-password-modal');
+      toast('เปลี่ยนรหัสผ่านแล้ว', 'success');
+    } catch (ex) { err(ex.message); }
   }
 
   // Jobs (admin)
@@ -1495,6 +1607,7 @@
     } else if (action === 'admin-tab') {
       state.admin.tab = actionEl.dataset.tab;
       if (state.admin.tab === 'applicants') loadAdminApplications();
+      else if (state.admin.tab === 'adminUsers') loadAdminUsers();
       else renderAdmin();
     } else if (action === 'app-page') {
       const target = parseInt(actionEl.dataset.pg, 10);
@@ -1513,6 +1626,18 @@
       openAppEditModal(state.admin.applications.find((x) => x.id === actionEl.dataset.id));
     } else if (action === 'app-edit-cancel') {
       hideModal('app-edit-modal');
+    } else if (action === 'user-new') {
+      openUserModal(null);
+    } else if (action === 'user-edit') {
+      openUserModal(state.admin.users.find((u) => u.id === actionEl.dataset.id));
+    } else if (action === 'user-delete') {
+      handleUserDelete(actionEl.dataset.id);
+    } else if (action === 'user-form-cancel') {
+      hideModal('user-modal');
+    } else if (action === 'my-password-open') {
+      openMyPasswordModal();
+    } else if (action === 'my-password-cancel') {
+      hideModal('my-password-modal');
     } else if (action === 'job-new') {
       openJobModal(null);
     } else if (action === 'job-edit') {
@@ -1580,6 +1705,8 @@
 
   document.getElementById('job-form').addEventListener('submit', handleJobFormSubmit);
   document.getElementById('app-edit-form').addEventListener('submit', handleAppEditSubmit);
+  document.getElementById('user-form').addEventListener('submit', handleUserFormSubmit);
+  document.getElementById('my-password-form').addEventListener('submit', handleMyPasswordSubmit);
   document.getElementById('faq-form').addEventListener('submit', handleFaqFormSubmit);
   document.getElementById('hr-contact-form').addEventListener('submit', handleHrContactFormSubmit);
   document.getElementById('pdpa-consent-check').addEventListener('change', (e) => {

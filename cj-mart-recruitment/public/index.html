@@ -106,6 +106,39 @@
     </div>
   </div>
 
+  <div id="user-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title" hidden>
+    <div class="modal-box">
+      <h3 id="user-modal-title">เพิ่มแอดมิน</h3>
+      <form id="user-form" style="margin-top:1rem;display:flex;flex-direction:column;gap:.8rem;" novalidate>
+        <div class="field"><label for="user-form-name">ชื่อ <span class="required">*</span></label><input id="user-form-name" required maxlength="100"></div>
+        <div class="field"><label for="user-form-email">อีเมล (ใช้เข้าสู่ระบบ) <span class="required">*</span></label><input id="user-form-email" type="email" required autocomplete="off"></div>
+        <div class="field"><label for="user-form-password" id="user-form-password-label">รหัสผ่าน <span class="required">*</span></label><input id="user-form-password" type="password" autocomplete="new-password" minlength="8"><span class="hint">อย่างน้อย 8 ตัวอักษร</span></div>
+        <label class="modal-check" id="user-form-active-wrap" hidden><input type="checkbox" id="user-form-active"><span>เปิดใช้งานบัญชีนี้ (ปิดไว้ = เข้าสู่ระบบไม่ได้)</span></label>
+        <div id="user-form-error" class="form-msg error" hidden></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-action="user-form-cancel">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="my-password-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="my-password-title" hidden>
+    <div class="modal-box">
+      <h3 id="my-password-title">เปลี่ยนรหัสผ่านของฉัน</h3>
+      <form id="my-password-form" style="margin-top:1rem;display:flex;flex-direction:column;gap:.8rem;" novalidate>
+        <div class="field"><label for="mp-current">รหัสผ่านปัจจุบัน</label><input id="mp-current" type="password" autocomplete="current-password" required></div>
+        <div class="field"><label for="mp-new">รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร)</label><input id="mp-new" type="password" autocomplete="new-password" required></div>
+        <div class="field"><label for="mp-new2">ยืนยันรหัสผ่านใหม่</label><input id="mp-new2" type="password" autocomplete="new-password" required></div>
+        <div id="mp-error" class="form-msg error" hidden></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-action="my-password-cancel">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="faq-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="faq-modal-title" hidden>
     <div class="modal-box">
       <h3 id="faq-modal-title">เพิ่มคำตอบให้แชทบอท</h3>

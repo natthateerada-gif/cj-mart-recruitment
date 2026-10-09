@@ -1,8 +1,17 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const pool = require('./db');
 
 const COOKIE_NAME = 'cjmart_admin_session';
 const TOKEN_TTL = '12h';
+
+// Who can log in to the admin area:
+//  - the "owner": the shared password from .env (ADMIN_PASSWORD / ADMIN_PASSWORD_HASH).
+//    Always full access and always works, so nobody can be locked out. Used to create
+//    the first personal accounts.
+//  - personal accounts in the admin_users table (email + password). Every account has
+//    the same access, including adding / removing other admin accounts.
+const OWNER_ID = 'owner';
 
 function getSecret() {
   const secret = process.env.JWT_SECRET;
@@ -33,8 +42,11 @@ function cookieSecure() {
   return process.env.NODE_ENV === 'production';
 }
 
-function issueAdminSession(res) {
-  const token = jwt.sign({ role: 'admin' }, getSecret(), { expiresIn: TOKEN_TTL });
+// `user` = { id, name, email }. Only the id goes into the token: the account is
+// re-read from the database on every request, so deactivating or deleting an account
+// takes effect immediately instead of after the 12h token expires.
+function issueAdminSession(res, user) {
+  const token = jwt.sign({ role: 'admin', sub: user ? user.id : OWNER_ID }, getSecret(), { expiresIn: TOKEN_TTL });
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -47,20 +59,40 @@ function clearAdminSession(res) {
   res.clearCookie(COOKIE_NAME);
 }
 
-function isAdminRequest(req) {
+const OWNER = { id: OWNER_ID, name: 'ผู้ดูแลระบบหลัก', email: '', isOwner: true };
+
+// Resolves the logged-in admin from the cookie, or null.
+async function resolveAdmin(req) {
   const token = req.cookies && req.cookies[COOKIE_NAME];
-  if (!token) return false;
+  if (!token) return null;
+  let payload;
   try {
-    const payload = jwt.verify(token, getSecret());
-    return payload && payload.role === 'admin';
+    payload = jwt.verify(token, getSecret());
   } catch (err) {
-    return false;
+    return null;
   }
+  if (!payload || payload.role !== 'admin') return null;
+  // Tokens issued before personal accounts existed have no "sub": they were the shared password.
+  if (!payload.sub || payload.sub === OWNER_ID) return { ...OWNER };
+  const { rows } = await pool.query(
+    'SELECT id, name, email, active FROM admin_users WHERE id = $1',
+    [payload.sub]
+  );
+  if (rows.length === 0 || !rows[0].active) return null;
+  return { id: rows[0].id, name: rows[0].name, email: rows[0].email, isOwner: false };
 }
 
-function requireAdmin(req, res, next) {
-  if (isAdminRequest(req)) return next();
-  return res.status(401).json({ error: 'unauthorized', message: 'กรุณาเข้าสู่ระบบแอดมินก่อน' });
+async function isAdminRequest(req) {
+  return !!(await resolveAdmin(req));
+}
+
+async function requireAdmin(req, res, next) {
+  try {
+    const admin = await resolveAdmin(req);
+    if (!admin) return res.status(401).json({ error: 'unauthorized', message: 'กรุณาเข้าสู่ระบบแอดมินก่อน' });
+    req.admin = admin;
+    return next();
+  } catch (err) { return next(err); }
 }
 
 function requireIntegrationKey(req, res, next) {
@@ -75,9 +107,11 @@ function requireIntegrationKey(req, res, next) {
 
 module.exports = {
   COOKIE_NAME,
+  OWNER_ID,
   verifyAdminPassword,
   issueAdminSession,
   clearAdminSession,
+  resolveAdmin,
   isAdminRequest,
   requireAdmin,
   requireIntegrationKey,

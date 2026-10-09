@@ -220,7 +220,8 @@ table.applicants .col-actions{position:sticky;right:0;box-shadow:-6px 0 8px -6px
 table.applicants th.col-actions{background:var(--surface-alt);}
 table.applicants td.col-actions{display:table-cell;}
 .col-actions .btn{margin-left:.25rem;}
-#ae-error[hidden]{display:none;}
+#ae-error[hidden],#user-form-error[hidden],#mp-error[hidden]{display:none;}
+.modal-check[hidden]{display:none;}
 table.applicants tr:hover td{background:var(--surface-alt);}
 select.status-select{width:auto;padding:.3rem .5rem;font-size:.8rem;border-radius:8px;}
 .job-manage{display:flex;flex-direction:column;gap:.5rem;margin-top:1.6rem;}
