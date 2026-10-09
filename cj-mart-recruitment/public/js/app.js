@@ -294,8 +294,14 @@
           ${job.workLocation ? `<span class="tag">${esc(job.workLocation)}</span>` : ''}
           ${job.salaryRange ? `<span class="tag salary">${esc(job.salaryRange)}</span>` : ''}
         </div>
-        <p class="summary">${esc(job.summary)}</p>
-        ${job.requirements ? `<p class="req">${esc(job.requirements)}</p>` : ''}
+        ${job.summary || job.requirements ? `
+        <details class="job-details">
+          <summary>รายละเอียดตำแหน่งงาน</summary>
+          <div class="job-details-body">
+            ${job.summary ? `<p class="summary">${esc(job.summary)}</p>` : ''}
+            ${job.requirements ? `<p class="req">${esc(job.requirements)}</p>` : ''}
+          </div>
+        </details>` : ''}
         <div class="row-end">
           <span class="status-pill open">เปิดรับสมัคร</span>
           <button type="button" class="btn btn-primary btn-sm" data-action="apply-to" data-job-id="${esc(job.id)}">สมัครตำแหน่งนี้</button>

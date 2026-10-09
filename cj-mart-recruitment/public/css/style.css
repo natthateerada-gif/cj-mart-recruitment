@@ -138,7 +138,7 @@ header.site{position:sticky;top:0;z-index:40;background:color-mix(in srgb, var(-
 section{padding:2.6rem 0;}
 .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.6rem;flex-wrap:wrap;}
 .section-head p{color:var(--text-muted);margin-top:.4rem;max-width:60ch;}
-.job-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.1rem;}
+.job-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.1rem;align-items:start;}
 .job-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.3rem;display:flex;flex-direction:column;gap:.7rem;box-shadow:var(--shadow);}
 .job-card.closed{opacity:.55;}
 .job-card-head{display:flex;align-items:center;gap:.8rem;}
@@ -146,7 +146,15 @@ section{padding:2.6rem 0;}
 .job-tags{display:flex;gap:.4rem;flex-wrap:wrap;}
 .tag{font-size:.72rem;font-weight:600;padding:.22rem .6rem;border-radius:999px;background:var(--surface-alt);color:var(--text-muted);}
 .tag.salary{background:var(--gold-tint);color:var(--gold-ink);}
-.job-card p.summary{color:var(--text-muted);font-size:.92rem;}
+.job-card p.summary{color:var(--text-muted);font-size:.92rem;white-space:pre-line;}
+.job-details{border:1px solid var(--border);border-radius:12px;background:var(--surface-alt);}
+.job-details summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.55rem .85rem;font-size:.88rem;font-weight:700;color:var(--brand-dark);border-radius:12px;}
+.job-details summary::-webkit-details-marker{display:none;}
+.job-details summary::after{content:"";width:.5rem;height:.5rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-.2rem;transition:transform .18s;flex:none;}
+.job-details[open] summary::after{transform:rotate(-135deg);margin-top:.2rem;}
+.job-details summary:focus-visible{outline:2px solid var(--brand-dark);outline-offset:2px;}
+.job-details-body{padding:0 .85rem .8rem;display:flex;flex-direction:column;gap:.6rem;}
+.job-details-body .req{margin:0;}
 .job-card .req{font-size:.82rem;color:var(--text-muted);border-top:1px dashed var(--border);padding-top:.6rem;white-space:pre-line;}
 .job-card .row-end{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding-top:.4rem;}
 .status-pill{font-size:.72rem;font-weight:700;padding:.25rem .6rem;border-radius:999px;}
