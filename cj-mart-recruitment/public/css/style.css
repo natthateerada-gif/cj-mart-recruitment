@@ -201,9 +201,15 @@ footer.site .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:
 .admin-tab{background:var(--surface);border:1px solid var(--border);padding:.5rem 1rem;border-radius:999px;font-size:.85rem;font-weight:600;color:var(--text-muted);}
 .admin-tab.active{background:var(--brand);color:#fff;border-color:var(--brand);}
 .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;}
-table.applicants{width:100%;border-collapse:collapse;font-size:.85rem;min-width:960px;}
+table.applicants{width:100%;border-collapse:collapse;font-size:.85rem;min-width:2600px;}
 table.applicants th{text-align:left;background:var(--surface-alt);padding:.7rem .8rem;font-size:.76rem;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);white-space:nowrap;}
-table.applicants td{padding:.7rem .8rem;border-top:1px solid var(--border);vertical-align:top;background:var(--surface);}
+table.applicants td{padding:.6rem .8rem;border-top:1px solid var(--border);vertical-align:middle;background:var(--surface);white-space:nowrap;}
+.cell-clip{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
+table.applicants .col-actions{position:sticky;right:0;box-shadow:-6px 0 8px -6px rgba(0,0,0,.18);}
+table.applicants th.col-actions{background:var(--surface-alt);}
+table.applicants td.col-actions{display:table-cell;}
+.col-actions .btn{margin-left:.25rem;}
+#ae-error[hidden]{display:none;}
 table.applicants tr:hover td{background:var(--surface-alt);}
 select.status-select{width:auto;padding:.3rem .5rem;font-size:.8rem;border-radius:8px;}
 .job-manage{display:flex;flex-direction:column;gap:.5rem;margin-top:1.6rem;}

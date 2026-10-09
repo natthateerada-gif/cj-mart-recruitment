@@ -38,6 +38,80 @@ function parseBirthDate(v) {
 
 const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา', 'ไม่สนใจงาน', 'Blacklist'];
 
+// Validates + normalises the applicant-supplied fields. Used by the public form
+// (strict: everything on the form is required) and by the admin "edit on behalf of
+// the applicant" action (lenient: only job/name/phone are required, so old
+// applications that never had the newer questions can still be corrected; any value
+// that IS given must still be valid). Never touches PDPA consent or the job lookup.
+function validateApplicationFields(b, { lenient = false } = {}) {
+  const errors = [];
+  const need = (missing, msg) => { if (!lenient && missing) errors.push(msg); };
+
+  const name = (b.name || '').trim();
+  const phone = (b.phone || '').trim();
+  const startDate = (b.startDate || '').trim();
+  const experience = (b.experience || '').trim();
+  const titleOther = (b.titlePrefixOther || '').trim();
+  let titlePrefix = (b.titlePrefix || '').trim();
+  if (titlePrefix === 'อื่นๆ') titlePrefix = titleOther;
+  else if (titlePrefix && !TITLE_OPTIONS.includes(titlePrefix)) titlePrefix = '';
+  const birthRaw = (b.birthDate || '').trim();
+  const birthDate = parseBirthDate(birthRaw);
+  const lineId = (b.lineId || '').trim();
+  const province = (b.province || '').trim();
+  const canDriveCar = parseYesNo(b.canDriveCar);
+  const hasDriverLicense = parseYesNo(b.hasDriverLicense);
+  const hasCriminalRecord = parseYesNo(b.hasCriminalRecord);
+  const criminalRecordDetail = (b.criminalRecordDetail || '').trim();
+  const hasChronicDisease = parseYesNo(b.hasChronicDisease);
+  const chronicDiseaseDetail = (b.chronicDiseaseDetail || '').trim();
+  const workedAtKarabao = parseYesNo(b.workedAtKarabao);
+  const karabaoCompany = (b.karabaoCompany || '').trim();
+  let sourceChannel = (b.sourceChannel || '').trim();
+  if (sourceChannel === 'อื่นๆ') sourceChannel = (b.sourceChannelOther || '').trim() || 'อื่นๆ';
+  const totalExperience = (b.totalExperience || '').trim();
+
+  need(!titlePrefix, 'กรุณาเลือกคำนำหน้าชื่อ (หากเลือก อื่นๆ ให้ระบุคำนำหน้า)');
+  if (!name) errors.push('กรุณากรอกชื่อ-นามสกุล');
+  if (!birthDate && (!lenient || birthRaw)) errors.push('กรุณาเลือกวัน เดือน ปีเกิดให้ถูกต้อง');
+  if (!PHONE_RE.test(phone)) errors.push('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+  if (lenient) {
+    if (province.length > 100) errors.push('ชื่อจังหวัดยาวเกินไป');
+    if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) errors.push('วันที่พร้อมเริ่มงานไม่ถูกต้อง');
+  } else {
+    if (province !== ANY_PROVINCE && !PROVINCES.includes(province)) errors.push('กรุณาเลือกจังหวัดที่สมัคร');
+    if (!startDate) errors.push('กรุณาเลือกวันที่พร้อมเริ่มงาน');
+  }
+  need(canDriveCar === null, 'กรุณาตอบคำถามว่าขับรถยนต์ได้หรือไม่');
+  need(hasDriverLicense === null, 'กรุณาตอบคำถามว่ามีใบขับขี่รถยนต์หรือไม่');
+  need(hasCriminalRecord === null, 'กรุณาตอบคำถามเรื่องประวัติถูกดำเนินคดี');
+  if (hasCriminalRecord === true && !criminalRecordDetail) errors.push('กรุณาระบุรายละเอียดคดี');
+  need(hasChronicDisease === null, 'กรุณาตอบคำถามเรื่องโรคประจำตัว');
+  if (hasChronicDisease === true && !chronicDiseaseDetail) errors.push('กรุณาระบุโรคประจำตัว');
+  need(workedAtKarabao === null, 'กรุณาตอบคำถามว่าเคยเป็นพนักงานในเครือคาราบาวหรือไม่');
+  if (workedAtKarabao === true && !karabaoCompany) errors.push('กรุณาระบุชื่อบริษัทในเครือคาราบาวที่เคยทำงาน');
+  if (!lenient) {
+    if (!sourceChannel || (!SOURCE_OPTIONS.includes(sourceChannel) && !(b.sourceChannel === 'อื่นๆ'))) errors.push('กรุณาเลือกช่องทางที่รับทราบประกาศสมัครงาน');
+    if (!EXPERIENCE_OPTIONS.includes(totalExperience)) errors.push('กรุณาเลือกจำนวนประสบการณ์ทำงานรวม');
+  } else if (totalExperience && !EXPERIENCE_OPTIONS.includes(totalExperience)) {
+    errors.push('จำนวนประสบการณ์ทำงานรวมไม่ถูกต้อง');
+  }
+  need(!experience, 'กรุณากรอกรายละเอียดประสบการณ์ทำงาน');
+
+  return {
+    errors,
+    v: {
+      name, phone, startDate, experience, titlePrefix, birthDate, lineId, province,
+      canDriveCar, hasDriverLicense,
+      hasCriminalRecord, criminalRecordDetail: hasCriminalRecord ? criminalRecordDetail : '',
+      hasChronicDisease, chronicDiseaseDetail: hasChronicDisease ? chronicDiseaseDetail : '',
+      workedAtKarabao, karabaoCompany: workedAtKarabao ? karabaoCompany : '',
+      sourceChannel, totalExperience,
+      email: (b.email || '').trim(),
+    },
+  };
+}
+
 function rowToApplication(row, { includeFilePaths = false } = {}) {
   const out = {
     id: row.id,
@@ -120,47 +194,9 @@ router.post(
       const errors = [];
 
       const jobId = (b.jobId || '').trim();
-      const name = (b.name || '').trim();
-      const phone = (b.phone || '').trim();
-      const startDate = (b.startDate || '').trim();
-      const experience = (b.experience || '').trim();
-      const titleOther = (b.titlePrefixOther || '').trim();
-      let titlePrefix = (b.titlePrefix || '').trim();
-      if (titlePrefix === 'อื่นๆ') titlePrefix = titleOther;
-      else if (titlePrefix && !TITLE_OPTIONS.includes(titlePrefix)) titlePrefix = '';
-      const birthDate = parseBirthDate((b.birthDate || '').trim());
-      const lineId = (b.lineId || '').trim();
-      const province = (b.province || '').trim();
-      const canDriveCar = parseYesNo(b.canDriveCar);
-      const hasDriverLicense = parseYesNo(b.hasDriverLicense);
-      const hasCriminalRecord = parseYesNo(b.hasCriminalRecord);
-      const criminalRecordDetail = (b.criminalRecordDetail || '').trim();
-      const hasChronicDisease = parseYesNo(b.hasChronicDisease);
-      const chronicDiseaseDetail = (b.chronicDiseaseDetail || '').trim();
-      const workedAtKarabao = parseYesNo(b.workedAtKarabao);
-      const karabaoCompany = (b.karabaoCompany || '').trim();
-      let sourceChannel = (b.sourceChannel || '').trim();
-      if (sourceChannel === 'อื่นๆ') sourceChannel = (b.sourceChannelOther || '').trim() || 'อื่นๆ';
-      const totalExperience = (b.totalExperience || '').trim();
       const pdpaConsent = b.pdpaConsent === 'true' || b.pdpaConsent === true;
-
-      if (!titlePrefix) errors.push('กรุณาเลือกคำนำหน้าชื่อ (หากเลือก อื่นๆ ให้ระบุคำนำหน้า)');
-      if (!name) errors.push('กรุณากรอกชื่อ-นามสกุล');
-      if (!birthDate) errors.push('กรุณาเลือกวัน เดือน ปีเกิดให้ถูกต้อง');
-      if (!PHONE_RE.test(phone)) errors.push('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
-      if (province !== ANY_PROVINCE && !PROVINCES.includes(province)) errors.push('กรุณาเลือกจังหวัดที่สมัคร');
-      if (!startDate) errors.push('กรุณาเลือกวันที่พร้อมเริ่มงาน');
-      if (canDriveCar === null) errors.push('กรุณาตอบคำถามว่าขับรถยนต์ได้หรือไม่');
-      if (hasDriverLicense === null) errors.push('กรุณาตอบคำถามว่ามีใบขับขี่รถยนต์หรือไม่');
-      if (hasCriminalRecord === null) errors.push('กรุณาตอบคำถามเรื่องประวัติถูกดำเนินคดี');
-      if (hasCriminalRecord === true && !criminalRecordDetail) errors.push('กรุณาระบุรายละเอียดคดี');
-      if (hasChronicDisease === null) errors.push('กรุณาตอบคำถามเรื่องโรคประจำตัว');
-      if (hasChronicDisease === true && !chronicDiseaseDetail) errors.push('กรุณาระบุโรคประจำตัว');
-      if (workedAtKarabao === null) errors.push('กรุณาตอบคำถามว่าเคยเป็นพนักงานในเครือคาราบาวหรือไม่');
-      if (workedAtKarabao === true && !karabaoCompany) errors.push('กรุณาระบุชื่อบริษัทในเครือคาราบาวที่เคยทำงาน');
-      if (!sourceChannel || (!SOURCE_OPTIONS.includes(sourceChannel) && !(b.sourceChannel === 'อื่นๆ'))) errors.push('กรุณาเลือกช่องทางที่รับทราบประกาศสมัครงาน');
-      if (!EXPERIENCE_OPTIONS.includes(totalExperience)) errors.push('กรุณาเลือกจำนวนประสบการณ์ทำงานรวม');
-      if (!experience) errors.push('กรุณากรอกรายละเอียดประสบการณ์ทำงาน');
+      const { errors: fieldErrors, v } = validateApplicationFields(b);
+      errors.push(...fieldErrors);
       if (!pdpaConsent) errors.push('กรุณายืนยันความยินยอม PDPA ก่อนส่งใบสมัคร');
 
       const jobRes = await pool.query('SELECT * FROM jobs WHERE id = $1 AND is_open = true', [jobId]);
@@ -193,15 +229,15 @@ router.post(
                  $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
          RETURNING *`,
         [
-          id, job.id, job.title, name, phone, (b.email || '').trim(), province, startDate,
-          [], experience,
+          id, job.id, job.title, v.name, v.phone, v.email, v.province, v.startDate,
+          [], v.experience,
           resumeFile ? 'db' : null, resumeFile ? fixFilename(resumeFile.originalname) : null, resumeFile ? resumeFile.mimetype : null,
           photoFile ? 'db' : null, photoFile ? fixFilename(photoFile.originalname) : null, photoFile ? photoFile.mimetype : null,
           'ใหม่', true,
-          titlePrefix, birthDate, lineId, canDriveCar, hasDriverLicense, hasCriminalRecord,
-          hasCriminalRecord ? criminalRecordDetail : '', sourceChannel, totalExperience,
-          hasChronicDisease, hasChronicDisease ? chronicDiseaseDetail : '',
-          workedAtKarabao, workedAtKarabao ? karabaoCompany : '',
+          v.titlePrefix, v.birthDate, v.lineId, v.canDriveCar, v.hasDriverLicense, v.hasCriminalRecord,
+          v.criminalRecordDetail, v.sourceChannel, v.totalExperience,
+          v.hasChronicDisease, v.chronicDiseaseDetail,
+          v.workedAtKarabao, v.karabaoCompany,
         ]
         ));
         for (const [kind, f] of [['resume', resumeFile], ['photo', photoFile]]) {
@@ -269,17 +305,61 @@ router.get('/api/admin/applications', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Admin: change status only ({status}) OR edit the applicant's details on their
+// behalf (any other keys present -> full edit with the lenient validator; the
+// attachments and PDPA consent are not touched).
 router.patch('/api/admin/applications/:id', requireAdmin, async (req, res, next) => {
   try {
-    const { status } = req.body || {};
-    if (!STATUS_OPTIONS.includes(status)) {
-      return res.status(400).json({ error: 'validation', message: 'สถานะไม่ถูกต้อง' });
+    const body = req.body || {};
+    const fullEdit = Object.keys(body).some((k) => k !== 'status');
+
+    if (!fullEdit) {
+      const { status } = body;
+      if (!STATUS_OPTIONS.includes(status)) {
+        return res.status(400).json({ error: 'validation', message: 'สถานะไม่ถูกต้อง' });
+      }
+      const { rows } = await pool.query(
+        'UPDATE applications SET status = $1, updated_at = now() WHERE id = $2 RETURNING *',
+        [status, req.params.id]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: 'not_found' });
+      return res.json(rowToApplication(rows[0]));
     }
+
+    const { errors, v } = validateApplicationFields(body, { lenient: true });
+    const jobId = (body.jobId || '').trim();
+    let job = null;
+    if (!jobId) errors.push('กรุณาเลือกตำแหน่งที่สมัคร');
+    else {
+      const jobRes = await pool.query('SELECT id, title FROM jobs WHERE id = $1', [jobId]);
+      if (jobRes.rows.length === 0) errors.push('ไม่พบตำแหน่งงานที่เลือก');
+      else job = jobRes.rows[0];
+    }
+    if (body.status !== undefined && !STATUS_OPTIONS.includes(body.status)) errors.push('สถานะไม่ถูกต้อง');
+    if (errors.length > 0) {
+      return res.status(400).json({ error: 'validation', message: errors.join(' / '), errors });
+    }
+
     const { rows } = await pool.query(
-      'UPDATE applications SET status = $1, updated_at = now() WHERE id = $2 RETURNING *',
-      [status, req.params.id]
+      `UPDATE applications SET
+         job_id = $1, job_title = $2, name = $3, phone = $4, email = $5, area = $6,
+         start_date = $7, experience = $8, title_prefix = $9, birth_date = $10, line_id = $11,
+         can_drive_car = $12, has_driver_license = $13, has_criminal_record = $14, criminal_record_detail = $15,
+         has_chronic_disease = $16, chronic_disease_detail = $17, worked_at_karabao = $18, karabao_company = $19,
+         source_channel = $20, total_experience = $21,
+         status = COALESCE($22, status), updated_at = now()
+       WHERE id = $23 RETURNING *`,
+      [
+        job.id, job.title, v.name, v.phone, v.email, v.province,
+        v.startDate || null, v.experience, v.titlePrefix, v.birthDate, v.lineId,
+        v.canDriveCar, v.hasDriverLicense, v.hasCriminalRecord, v.criminalRecordDetail,
+        v.hasChronicDisease, v.chronicDiseaseDetail, v.workedAtKarabao, v.karabaoCompany,
+        v.sourceChannel, v.totalExperience,
+        body.status === undefined ? null : body.status,
+        req.params.id,
+      ]
     );
-    if (rows.length === 0) return res.status(404).json({ error: 'not_found' });
+    if (rows.length === 0) return res.status(404).json({ error: 'not_found', message: 'ไม่พบใบสมัครนี้ (อาจถูกลบไปแล้ว)' });
     res.json(rowToApplication(rows[0]));
   } catch (err) { next(err); }
 });

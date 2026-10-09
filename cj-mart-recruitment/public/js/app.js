@@ -56,7 +56,7 @@
   }
   function hideModal(id) {
     document.getElementById(id).hidden = true;
-    const anyOpen = ['pdpa-modal', 'success-modal', 'job-modal', 'faq-modal', 'hr-contact-modal']
+    const anyOpen = ['pdpa-modal', 'success-modal', 'job-modal', 'faq-modal', 'hr-contact-modal', 'app-edit-modal']
       .some((mid) => mid !== id && !document.getElementById(mid).hidden);
     if (!anyOpen) document.getElementById('modal-backdrop').hidden = true;
   }
@@ -680,31 +680,55 @@
 
   const yn = (v) => (v === true ? 'ใช่' : v === false ? 'ไม่ใช่' : '-');
 
+  // 'YYYY-MM-DD' (or an ISO timestamp) -> 'dd/mm/พ.ศ.' built from the string parts,
+  // so the date never shifts with the browser/server timezone.
+  function thDate(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+    if (!m) return '';
+    return `${m[3]}/${m[2]}/${Number(m[1]) + 543}`;
+  }
+
   function renderAdminApplicants() {
     const a = state.admin;
     const jobOptions = a.jobsAll.map((j) => `<option value="${esc(j.id)}" ${a.filterJobId === j.id ? 'selected' : ''}>${esc(j.title)}</option>`).join('');
     const statusOptions = STATUS_OPTIONS.map((s) => `<option value="${esc(s)}" ${a.filterStatus === s ? 'selected' : ''}>${esc(s)}</option>`).join('');
+    const cell = (text, { max = 0 } = {}) => {
+      const t = text === null || text === undefined || text === '' ? '-' : String(text);
+      return max
+        ? `<td><span class="cell-clip" style="max-width:${max}px" title="${esc(t)}">${esc(t)}</span></td>`
+        : `<td title="${esc(t)}">${esc(t)}</td>`;
+    };
+    const ynd = (v, detail) => (v === true ? 'ใช่' + (detail ? ' – ' + detail : '') : v === false ? 'ไม่ใช่' : '-');
     const rows = a.applications.map((app) => `
       <tr>
-        <td>${app.submittedAt ? new Date(app.submittedAt).toLocaleString('th-TH') : '-'}</td>
-        <td>${esc(((app.titlePrefix || '') + ' ' + app.name).trim())}${app.birthDate ? `<br><span class="hint">เกิด ${esc(new Date(app.birthDate).toLocaleDateString('th-TH'))}</span>` : ''}</td>
-        <td>${esc(app.jobTitle)}</td>
-        <td>${esc(app.phone)}${app.email ? '<br>' + esc(app.email) : ''}${app.lineId ? '<br>LINE: ' + esc(app.lineId) : ''}</td>
-        <td>${esc(app.province || app.area || '-')}</td>
-        <td>${app.startDate ? new Date(app.startDate).toLocaleDateString('th-TH') : '-'}</td>
-        <td class="extra-info">${app.canDriveCar === null && app.hasDriverLicense === null && app.hasCriminalRecord === null && !app.totalExperience && !app.sourceChannel
-          ? esc((app.availability || []).join(', ') || '-')
-          : `ขับรถยนต์: ${esc(yn(app.canDriveCar))}<br>ใบขับขี่: ${esc(yn(app.hasDriverLicense))}<br>ประวัติคดี: ${esc(yn(app.hasCriminalRecord))}${app.hasCriminalRecord && app.criminalRecordDetail ? ` (${esc(app.criminalRecordDetail)})` : ''}<br>โรคประจำตัว: ${esc(yn(app.hasChronicDisease))}${app.hasChronicDisease && app.chronicDiseaseDetail ? ` (${esc(app.chronicDiseaseDetail)})` : ''}<br>เคยทำงานเครือคาราบาว: ${esc(yn(app.workedAtKarabao))}${app.workedAtKarabao && app.karabaoCompany ? ` (${esc(app.karabaoCompany)})` : ''}<br>ประสบการณ์รวม: ${esc(app.totalExperience || '-')}<br>รู้จักงานจาก: ${esc(app.sourceChannel || '-')}`}</td>
+        ${cell(app.submittedAt ? new Date(app.submittedAt).toLocaleString('th-TH') : '-')}
+        ${cell(app.jobTitle, { max: 220 })}
+        ${cell(app.titlePrefix)}
+        ${cell(app.name, { max: 220 })}
+        ${cell(thDate(app.birthDate))}
+        ${cell(app.phone)}
+        ${cell(app.email, { max: 220 })}
+        ${cell(app.lineId)}
+        ${cell(app.province || app.area)}
+        ${cell(thDate(app.startDate))}
+        ${cell(app.sourceChannel, { max: 160 })}
+        ${cell(ynd(app.canDriveCar))}
+        ${cell(ynd(app.hasDriverLicense))}
+        ${cell(ynd(app.hasCriminalRecord, app.criminalRecordDetail), { max: 200 })}
+        ${cell(ynd(app.hasChronicDisease, app.chronicDiseaseDetail), { max: 200 })}
+        ${cell(ynd(app.workedAtKarabao, app.karabaoCompany), { max: 200 })}
+        ${cell(app.totalExperience)}
+        ${cell(app.experience || (app.availability || []).join(', '), { max: 260 })}
+        <td>${app.hasResume || app.hasPhoto ? `${app.hasResume ? `<a href="/api/admin/applications/${esc(app.id)}/resume" target="_blank">${icon('download')} ประวัติ</a>` : ''}${app.hasResume && app.hasPhoto ? ' · ' : ''}${app.hasPhoto ? `<a href="/api/admin/applications/${esc(app.id)}/photo" target="_blank">${icon('download')} รูปถ่าย</a>` : ''}` : '-'}</td>
         <td>
           <select class="status-select" data-action="app-status" data-id="${esc(app.id)}">
             ${STATUS_OPTIONS.map((s) => `<option value="${esc(s)}" ${app.status === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
           </select>
         </td>
-        <td>
-          ${app.hasResume ? `<a href="/api/admin/applications/${esc(app.id)}/resume" target="_blank">${icon('download')} ประวัติ</a><br>` : ''}
-          ${app.hasPhoto ? `<a href="/api/admin/applications/${esc(app.id)}/photo" target="_blank">${icon('download')} รูปถ่าย</a>` : ''}
+        <td class="col-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="app-edit" data-id="${esc(app.id)}" title="แก้ไขข้อมูล" aria-label="แก้ไขข้อมูล">${icon('edit')}</button>
+          <button type="button" class="btn btn-danger btn-sm" data-action="app-delete" data-id="${esc(app.id)}" title="ลบ" aria-label="ลบ">${icon('trash')}</button>
         </td>
-        <td><button type="button" class="btn btn-danger btn-sm" data-action="app-delete" data-id="${esc(app.id)}">${icon('trash')}</button></td>
       </tr>
     `).join('');
 
@@ -731,8 +755,8 @@
       </div>
       <div class="table-wrap">
         <table class="applicants">
-          <thead><tr><th>วันที่สมัคร</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>ติดต่อ</th><th>จังหวัด</th><th>วันเริ่มงาน</th><th>ข้อมูลเพิ่มเติม</th><th>สถานะ</th><th>ไฟล์แนบ</th><th></th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="10"><div class="empty-state">${a.search ? `ไม่พบใบสมัครที่ตรงกับ “${esc(a.search)}”` : 'ยังไม่มีใบสมัครในเงื่อนไขนี้'}</div></td></tr>`}</tbody>
+          <thead><tr><th>วันที่สมัคร</th><th>ตำแหน่งที่สมัคร</th><th>คำนำหน้า</th><th>ชื่อ-นามสกุล</th><th>วัน/เดือน/ปีเกิด</th><th>เบอร์โทรศัพท์</th><th>อีเมล</th><th>ID Line</th><th>จังหวัดที่สมัคร</th><th>วันที่พร้อมเริ่มงาน</th><th>ช่องทางที่รับทราบ</th><th>ขับรถยนต์</th><th>ใบขับขี่</th><th>ประวัติคดี</th><th>โรคประจำตัว</th><th>เคยทำงานเครือคาราบาว</th><th>ประสบการณ์รวม</th><th>รายละเอียดประสบการณ์</th><th>ไฟล์แนบ</th><th>สถานะ</th><th class="col-actions">จัดการ</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="21"><div class="empty-state">${a.search ? `ไม่พบใบสมัครที่ตรงกับ “${esc(a.search)}”` : 'ยังไม่มีใบสมัครในเงื่อนไขนี้'}</div></td></tr>`}</tbody>
         </table>
       </div>
       ${applicantsPagerHtml()}
@@ -1025,6 +1049,149 @@
       toast('ลบใบสมัครแล้ว', 'success');
       await loadAdminApplications();
     } catch (err) { toast(err.message, 'error'); }
+  }
+
+  // Admin: edit an application on the applicant's behalf
+  function openAppEditModal(app) {
+    if (!app) return;
+    const opt = (v, label, sel) => `<option value="${esc(v)}"${sel ? ' selected' : ''}>${esc(label === undefined ? v : label)}</option>`;
+    const jobs = state.admin.jobsAll.slice();
+    if (!jobs.some((j) => j.id === app.jobId)) jobs.unshift({ id: app.jobId, title: app.jobTitle });
+    const jobSel = jobs.map((j) => opt(j.id, j.title, j.id === app.jobId)).join('');
+
+    const titleKnown = TITLE_OPTIONS.includes(app.titlePrefix);
+    const titleVal = app.titlePrefix ? (titleKnown ? app.titlePrefix : 'อื่นๆ') : '';
+    const titleOther = app.titlePrefix && !titleKnown ? app.titlePrefix : '';
+    const titleSel = '<option value="">-- ไม่ระบุ --</option>' + TITLE_OPTIONS.map((t) => opt(t, t, t === titleVal)).join('');
+
+    let bd = '', bm = '', by = '';
+    const bmatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(app.birthDate || '');
+    if (bmatch) { by = Number(bmatch[1]) + 543; bm = Number(bmatch[2]); bd = Number(bmatch[3]); }
+    const nowBE = new Date().getFullYear() + 543;
+    const years = [];
+    for (let y = nowBE - 10; y >= nowBE - 90; y -= 1) years.push(y);
+    if (by && !years.includes(by)) years.push(by);
+    const dayOpts = '<option value="">วัน</option>' + Array.from({ length: 31 }, (_, i) => opt(i + 1, i + 1, i + 1 === bd)).join('');
+    const monthOpts = '<option value="">เดือน</option>' + THAI_MONTHS.map((m, i) => opt(i + 1, m, i + 1 === bm)).join('');
+    const yearOpts = '<option value="">ปี พ.ศ.</option>' + years.sort((x, y) => y - x).map((y) => opt(y, y, y === by)).join('');
+
+    const provinces = [ANY_PROVINCE].concat(PROVINCES);
+    if (app.province && !provinces.includes(app.province)) provinces.push(app.province);
+    const provSel = '<option value="">-- ไม่ระบุ --</option>' + provinces.map((p) => opt(p, p, p === app.province)).join('');
+
+    const srcKnown = SOURCE_OPTIONS.includes(app.sourceChannel);
+    const srcVal = app.sourceChannel ? (srcKnown ? app.sourceChannel : 'อื่นๆ') : '';
+    const srcOther = app.sourceChannel && !srcKnown && app.sourceChannel !== 'อื่นๆ' ? app.sourceChannel : '';
+    const srcSel = '<option value="">-- ไม่ระบุ --</option>' + SOURCE_OPTIONS.map((t) => opt(t, t, t === srcVal)).join('');
+
+    const ynSel = (id, v) => `<select id="${id}"><option value=""${v === null || v === undefined ? ' selected' : ''}>ไม่ระบุ</option><option value="true"${v === true ? ' selected' : ''}>ใช่</option><option value="false"${v === false ? ' selected' : ''}>ไม่ใช่</option></select>`;
+    const expSel = '<option value="">-- ไม่ระบุ --</option>' + EXPERIENCE_OPTIONS.map((t) => opt(t, t, t === app.totalExperience)).join('');
+    const statusSel = STATUS_OPTIONS.map((t) => opt(t, t, t === app.status)).join('');
+
+    document.getElementById('app-edit-form').innerHTML = `
+      <input type="hidden" id="ae-id" value="${esc(app.id)}">
+      <div class="form-grid">
+        <div class="field full"><label for="ae-job">ตำแหน่งที่สมัคร <span class="required">*</span></label><select id="ae-job" required>${jobSel}</select></div>
+        <div class="field"><label for="ae-title">คำนำหน้าชื่อ</label><select id="ae-title">${titleSel}</select></div>
+        <div class="field" id="ae-title-other-wrap"${titleVal === 'อื่นๆ' ? '' : ' hidden'}><label for="ae-title-other">ระบุคำนำหน้า</label><input id="ae-title-other" value="${esc(titleOther)}"></div>
+        <div class="field"><label for="ae-name">ชื่อ-นามสกุล <span class="required">*</span></label><input id="ae-name" required value="${esc(app.name)}"></div>
+        <div class="field full"><label>วัน/เดือน/ปีเกิด (พ.ศ.)</label>
+          <div class="date-row">
+            <select id="ae-birth-day" aria-label="วัน">${dayOpts}</select>
+            <select id="ae-birth-month" aria-label="เดือน">${monthOpts}</select>
+            <select id="ae-birth-year" aria-label="ปี พ.ศ.">${yearOpts}</select>
+          </div>
+        </div>
+        <div class="field"><label for="ae-phone">เบอร์โทรศัพท์ (10 หลัก) <span class="required">*</span></label><input id="ae-phone" required inputmode="numeric" maxlength="10" value="${esc(app.phone)}"></div>
+        <div class="field"><label for="ae-email">อีเมล</label><input id="ae-email" type="email" value="${esc(app.email || '')}"></div>
+        <div class="field"><label for="ae-line">ID Line</label><input id="ae-line" value="${esc(app.lineId || '')}"></div>
+        <div class="field"><label for="ae-province">จังหวัดที่สมัคร</label><select id="ae-province">${provSel}</select></div>
+        <div class="field"><label for="ae-start">วันที่พร้อมเริ่มงาน</label><input id="ae-start" type="date" value="${esc((app.startDate || '').slice(0, 10))}"></div>
+        <div class="field"><label for="ae-source">ช่องทางที่รับทราบประกาศ</label><select id="ae-source">${srcSel}</select></div>
+        <div class="field" id="ae-source-other-wrap"${srcVal === 'อื่นๆ' ? '' : ' hidden'}><label for="ae-source-other">ระบุช่องทาง</label><input id="ae-source-other" value="${esc(srcOther)}"></div>
+        <div class="field"><label for="ae-drive">ขับรถยนต์ได้</label>${ynSel('ae-drive', app.canDriveCar)}</div>
+        <div class="field"><label for="ae-license">มีใบขับขี่รถยนต์</label>${ynSel('ae-license', app.hasDriverLicense)}</div>
+        <div class="field"><label for="ae-crime">เคยถูกดำเนินคดี</label>${ynSel('ae-crime', app.hasCriminalRecord)}</div>
+        <div class="field" id="ae-crime-wrap"${app.hasCriminalRecord === true ? '' : ' hidden'}><label for="ae-crime-detail">รายละเอียดคดี <span class="required">*</span></label><input id="ae-crime-detail" value="${esc(app.criminalRecordDetail || '')}"></div>
+        <div class="field"><label for="ae-disease">โรคประจำตัว</label>${ynSel('ae-disease', app.hasChronicDisease)}</div>
+        <div class="field" id="ae-disease-wrap"${app.hasChronicDisease === true ? '' : ' hidden'}><label for="ae-disease-detail">ระบุโรคประจำตัว <span class="required">*</span></label><input id="ae-disease-detail" value="${esc(app.chronicDiseaseDetail || '')}"></div>
+        <div class="field"><label for="ae-karabao">เคยเป็นพนักงานเครือคาราบาว</label>${ynSel('ae-karabao', app.workedAtKarabao)}</div>
+        <div class="field" id="ae-karabao-wrap"${app.workedAtKarabao === true ? '' : ' hidden'}><label for="ae-karabao-company">ชื่อบริษัทในเครือ <span class="required">*</span></label><input id="ae-karabao-company" value="${esc(app.karabaoCompany || '')}"></div>
+        <div class="field"><label for="ae-exp-total">จำนวนประสบการณ์รวม</label><select id="ae-exp-total">${expSel}</select></div>
+        <div class="field"><label for="ae-status">สถานะ</label><select id="ae-status">${statusSel}</select></div>
+        <div class="field full"><label for="ae-exp">รายละเอียดประสบการณ์ทำงาน</label><textarea id="ae-exp">${esc(app.experience || '')}</textarea></div>
+      </div>
+      <p class="hint">ไฟล์แนบ (เรซูเม่/รูปถ่าย) และการยินยอม PDPA ไม่สามารถแก้ไขจากหน้านี้ได้</p>
+      <div id="ae-error" class="form-msg error" hidden></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-action="app-edit-cancel">ยกเลิก</button>
+        <button type="submit" class="btn btn-primary">บันทึก</button>
+      </div>
+    `;
+    const toggle = (selId, wrapId, test) => {
+      const el = document.getElementById(selId);
+      const sync = () => { document.getElementById(wrapId).hidden = !test(el.value); };
+      el.addEventListener('change', sync);
+    };
+    toggle('ae-title', 'ae-title-other-wrap', (v) => v === 'อื่นๆ');
+    toggle('ae-source', 'ae-source-other-wrap', (v) => v === 'อื่นๆ');
+    toggle('ae-crime', 'ae-crime-wrap', (v) => v === 'true');
+    toggle('ae-disease', 'ae-disease-wrap', (v) => v === 'true');
+    toggle('ae-karabao', 'ae-karabao-wrap', (v) => v === 'true');
+    showModal('app-edit-modal');
+  }
+
+  async function handleAppEditSubmit(e) {
+    e.preventDefault();
+    const $ = (id) => document.getElementById(id);
+    const errBox = $('ae-error');
+    errBox.hidden = true;
+    const day = $('ae-birth-day').value;
+    const month = $('ae-birth-month').value;
+    const yearBE = $('ae-birth-year').value;
+    let birthDate = '';
+    if (day || month || yearBE) {
+      if (!(day && month && yearBE)) {
+        errBox.textContent = 'กรุณาเลือกวัน เดือน ปีเกิดให้ครบ (หรือไม่เลือกเลย)';
+        errBox.hidden = false;
+        return;
+      }
+      birthDate = `${Number(yearBE) - 543}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    const body = {
+      jobId: $('ae-job').value,
+      titlePrefix: $('ae-title').value,
+      titlePrefixOther: $('ae-title-other').value,
+      name: $('ae-name').value,
+      birthDate,
+      phone: $('ae-phone').value,
+      email: $('ae-email').value,
+      lineId: $('ae-line').value,
+      province: $('ae-province').value,
+      startDate: $('ae-start').value,
+      sourceChannel: $('ae-source').value,
+      sourceChannelOther: $('ae-source-other').value,
+      canDriveCar: $('ae-drive').value,
+      hasDriverLicense: $('ae-license').value,
+      hasCriminalRecord: $('ae-crime').value,
+      criminalRecordDetail: $('ae-crime-detail').value,
+      hasChronicDisease: $('ae-disease').value,
+      chronicDiseaseDetail: $('ae-disease-detail').value,
+      workedAtKarabao: $('ae-karabao').value,
+      karabaoCompany: $('ae-karabao-company').value,
+      totalExperience: $('ae-exp-total').value,
+      experience: $('ae-exp').value,
+      status: $('ae-status').value,
+    };
+    try {
+      await api(`/api/admin/applications/${$('ae-id').value}`, { method: 'PATCH', body });
+      hideModal('app-edit-modal');
+      toast('บันทึกการแก้ไขแล้ว', 'success');
+      await loadAdminApplications();
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.hidden = false;
+    }
   }
 
   // Jobs (admin)
@@ -1336,6 +1503,10 @@
       handleAdminLogout();
     } else if (action === 'app-delete') {
       handleAppDelete(actionEl.dataset.id);
+    } else if (action === 'app-edit') {
+      openAppEditModal(state.admin.applications.find((x) => x.id === actionEl.dataset.id));
+    } else if (action === 'app-edit-cancel') {
+      hideModal('app-edit-modal');
     } else if (action === 'job-new') {
       openJobModal(null);
     } else if (action === 'job-edit') {
@@ -1402,6 +1573,7 @@
   });
 
   document.getElementById('job-form').addEventListener('submit', handleJobFormSubmit);
+  document.getElementById('app-edit-form').addEventListener('submit', handleAppEditSubmit);
   document.getElementById('faq-form').addEventListener('submit', handleFaqFormSubmit);
   document.getElementById('hr-contact-form').addEventListener('submit', handleHrContactFormSubmit);
   document.getElementById('pdpa-consent-check').addEventListener('change', (e) => {
