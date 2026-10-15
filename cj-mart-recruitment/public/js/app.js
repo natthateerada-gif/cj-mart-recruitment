@@ -56,7 +56,7 @@
   }
   function hideModal(id) {
     document.getElementById(id).hidden = true;
-    const anyOpen = ['pdpa-modal', 'success-modal', 'job-modal', 'faq-modal', 'hr-contact-modal', 'app-edit-modal', 'user-modal', 'my-password-modal']
+    const anyOpen = ['pdpa-modal', 'success-modal', 'job-modal', 'faq-modal', 'hr-contact-modal', 'app-edit-modal', 'user-modal', 'my-password-modal', 'notes-modal', 'import-modal']
       .some((mid) => mid !== id && !document.getElementById(mid).hidden);
     if (!anyOpen) document.getElementById('modal-backdrop').hidden = true;
   }
@@ -64,7 +64,7 @@
   // ---------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------
-  const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา', 'ไม่สนใจงาน', 'Blacklist'];
+  const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'ไม่รับสาย', 'ติดต่อไม่ได้', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา', 'ไม่สนใจงาน', 'Blacklist'];
   const TITLE_OPTIONS = ['นาย', 'นาง', 'นางสาว', 'ว่าที่ ร.ต.', 'อื่นๆ'];
   const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
   const ANY_PROVINCE = 'เดินทางได้ทุกจังหวัด';
@@ -688,7 +688,8 @@
   function statusBadgeColor(status) {
     if (status === 'รับเข้าทำงาน') return 'tone-green';
     if (status === 'ไม่ผ่านการพิจารณา') return 'tone-red';
-    if (status === 'นัดสัมภาษณ์') return 'tone-gold';
+    if (status === 'นัดสัมภาษณ์' || status === 'ไม่รับสาย') return 'tone-gold';
+    if (status === 'ติดต่อไม่ได้' || status === 'Blacklist') return 'tone-red';
     return 'tone-blue';
   }
 
@@ -700,6 +701,15 @@
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
     if (!m) return '';
     return `${m[3]}/${m[2]}/${Number(m[1]) + 543}`;
+  }
+
+  function noteCellHtml(app) {
+    if (!app.noteCount || !app.lastNote) {
+      return `<button type="button" class="note-btn" data-action="app-notes" data-id="${esc(app.id)}">${icon('plus')} เพิ่มหมายเหตุ</button>`;
+    }
+    const n = app.lastNote;
+    const preview = `${thDate(n.callDate)} · ${n.authorName}: ${n.note}`;
+    return `<button type="button" class="note-btn has-note" data-action="app-notes" data-id="${esc(app.id)}" title="${esc(preview)}"><span class="note-count">${app.noteCount}</span><span class="note-last">${esc(preview)}</span></button>`;
   }
 
   function renderAdminApplicants() {
@@ -739,6 +749,7 @@
             ${STATUS_OPTIONS.map((s) => `<option value="${esc(s)}" ${app.status === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
           </select>
         </td>
+        <td>${noteCellHtml(app)}</td>
         <td class="col-actions">
           <button type="button" class="btn btn-ghost btn-sm" data-action="app-edit" data-id="${esc(app.id)}" title="แก้ไขข้อมูล" aria-label="แก้ไขข้อมูล">${icon('edit')}</button>
           <button type="button" class="btn btn-danger btn-sm" data-action="app-delete" data-id="${esc(app.id)}" title="ลบ" aria-label="ลบ">${icon('trash')}</button>
@@ -763,14 +774,15 @@
           </form>
         </div>
         <div style="display:flex;gap:.5rem;">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="import-open">${icon('upload')} นำเข้า CSV</button>
           <a class="btn btn-ghost btn-sm" href="/api/admin/export/applicants.csv">${icon('download')} CSV</a>
           <a class="btn btn-ghost btn-sm" href="/api/admin/export/applicants.json">${icon('download')} JSON</a>
         </div>
       </div>
       <div class="table-wrap">
         <table class="applicants">
-          <thead><tr><th>วันที่สมัคร</th><th>ตำแหน่งที่สมัคร</th><th>คำนำหน้า</th><th>ชื่อ-นามสกุล</th><th>วัน/เดือน/ปีเกิด</th><th>เบอร์โทรศัพท์</th><th>อีเมล</th><th>ID Line</th><th>จังหวัดที่สมัคร</th><th>วันที่พร้อมเริ่มงาน</th><th>ช่องทางที่รับทราบ</th><th>ขับรถยนต์</th><th>ใบขับขี่</th><th>ประวัติคดี</th><th>โรคประจำตัว</th><th>เคยทำงานเครือคาราบาว</th><th>ประสบการณ์รวม</th><th>รายละเอียดประสบการณ์</th><th>ไฟล์แนบ</th><th>สถานะ</th><th class="col-actions">จัดการ</th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="21"><div class="empty-state">${a.search ? `ไม่พบใบสมัครที่ตรงกับ “${esc(a.search)}”` : 'ยังไม่มีใบสมัครในเงื่อนไขนี้'}</div></td></tr>`}</tbody>
+          <thead><tr><th>วันที่สมัคร</th><th>ตำแหน่งที่สมัคร</th><th>คำนำหน้า</th><th>ชื่อ-นามสกุล</th><th>วัน/เดือน/ปีเกิด</th><th>เบอร์โทรศัพท์</th><th>อีเมล</th><th>ID Line</th><th>จังหวัดที่สมัคร</th><th>วันที่พร้อมเริ่มงาน</th><th>ช่องทางที่รับทราบ</th><th>ขับรถยนต์</th><th>ใบขับขี่</th><th>ประวัติคดี</th><th>โรคประจำตัว</th><th>เคยทำงานเครือคาราบาว</th><th>ประสบการณ์รวม</th><th>รายละเอียดประสบการณ์</th><th>ไฟล์แนบ</th><th>สถานะ</th><th>หมายเหตุ HR (โทรสกรีน)</th><th class="col-actions">จัดการ</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="22"><div class="empty-state">${a.search ? `ไม่พบใบสมัครที่ตรงกับ “${esc(a.search)}”` : 'ยังไม่มีใบสมัครในเงื่อนไขนี้'}</div></td></tr>`}</tbody>
         </table>
       </div>
       ${applicantsPagerHtml()}
@@ -1049,6 +1061,253 @@
     state.admin.tab = 'applicants';
     renderAdmin();
     toast('ออกจากระบบแล้ว', 'info');
+  }
+
+  // ---------------------------------------------------------------------
+  // HR screening notes (date of the screening call + note + who wrote it)
+  // ---------------------------------------------------------------------
+  const notesState = { appId: null, notes: [], error: '' };
+
+  function todayBangkokIso() {
+    return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+
+  function currentNotesApp() {
+    return state.admin.applications.find((x) => x.id === notesState.appId) || null;
+  }
+
+  function renderNotesModal() {
+    const app = currentNotesApp();
+    if (!app) return;
+    const list = notesState.notes.map((n) => `
+      <div class="note-item">
+        <div class="note-meta">
+          <span>โทรสกรีนวันที่ <strong>${esc(thDate(n.callDate))}</strong> · บันทึกโดย <strong>${esc(n.authorName)}</strong></span>
+          <span>${esc(new Date(n.createdAt).toLocaleString('th-TH'))} <button type="button" class="btn btn-ghost btn-sm" data-action="note-delete" data-id="${esc(n.id)}" title="ลบหมายเหตุนี้" aria-label="ลบหมายเหตุนี้">${icon('trash')}</button></span>
+        </div>
+        <div class="note-text">${esc(n.note)}</div>
+      </div>`).join('');
+    const me = state.admin.user ? state.admin.user.name : 'แอดมิน';
+    const statusOpts = [`<option value="">ไม่เปลี่ยนสถานะ (ตอนนี้: ${esc(app.status)})</option>`]
+      .concat(STATUS_OPTIONS.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`)).join('');
+    document.getElementById('notes-body').innerHTML = `
+      <p class="hint" style="margin-bottom:.6rem;"><strong>${esc(app.name)}</strong> · ${esc(app.jobTitle)} · ${esc(app.phone)}</p>
+      ${notesState.error ? `<div class="form-msg error">${esc(notesState.error)}</div>` : ''}
+      <div class="note-list" id="note-list">${list || '<div class="empty-state">ยังไม่มีหมายเหตุ</div>'}</div>
+      <form id="note-form" style="display:flex;flex-direction:column;gap:.8rem;" novalidate>
+        <div class="note-form-row">
+          <div class="field"><label for="note-date">วันที่โทรสกรีน</label><input type="date" id="note-date" value="${todayBangkokIso()}" max="${todayBangkokIso()}" required></div>
+          <div class="field"><label for="note-status">เปลี่ยนสถานะพร้อมบันทึก (ถ้ามี)</label><select id="note-status">${statusOpts}</select></div>
+        </div>
+        <div class="field"><label for="note-text">หมายเหตุ <span class="required">*</span></label><textarea id="note-text" rows="3" maxlength="2000" required placeholder="เช่น โทรแล้วไม่รับสาย / คุยแล้ว สะดวกเริ่มงานต้นเดือน"></textarea><span class="hint">ระบบบันทึกชื่อผู้เขียนให้อัตโนมัติ: ${esc(me)}</span></div>
+        <div id="note-error" class="form-msg error" hidden></div>
+        <div class="modal-actions" style="margin-top:.2rem;">
+          <button type="button" class="btn btn-ghost" data-action="notes-close">ปิด</button>
+          <button type="submit" class="btn btn-primary">บันทึกหมายเหตุ</button>
+        </div>
+      </form>`;
+  }
+
+  async function refreshNotes() {
+    try {
+      notesState.notes = await api(`/api/admin/applications/${notesState.appId}/notes`);
+      notesState.error = '';
+    } catch (err) {
+      notesState.error = err.message;
+    }
+    renderNotesModal();
+  }
+
+  async function openNotesModal(app) {
+    if (!app) return;
+    notesState.appId = app.id;
+    notesState.notes = [];
+    notesState.error = '';
+    renderNotesModal();
+    showModal('notes-modal');
+    await refreshNotes();
+  }
+
+  async function handleNoteSubmit(e) {
+    e.preventDefault();
+    const errBox = document.getElementById('note-error');
+    errBox.hidden = true;
+    const body = {
+      note: document.getElementById('note-text').value.trim(),
+      callDate: document.getElementById('note-date').value,
+      status: document.getElementById('note-status').value,
+    };
+    if (!body.note) { errBox.textContent = 'กรุณากรอกหมายเหตุ'; errBox.hidden = false; return; }
+    try {
+      await api(`/api/admin/applications/${notesState.appId}/notes`, { method: 'POST', body });
+      toast('บันทึกหมายเหตุแล้ว', 'success');
+      await loadAdminApplications();
+      await refreshNotes();
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.hidden = false;
+    }
+  }
+
+  async function handleNoteDelete(noteId) {
+    if (!confirm('ยืนยันลบหมายเหตุนี้?')) return;
+    try {
+      await api(`/api/admin/applications/${notesState.appId}/notes/${noteId}`, { method: 'DELETE' });
+      toast('ลบหมายเหตุแล้ว', 'success');
+      await loadAdminApplications();
+      await refreshNotes();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // CSV import (two steps: preview, then commit — see routes/importApplicants.js)
+  // ---------------------------------------------------------------------
+  const importState = { file: null, preview: null, mapping: null, dateOrder: 'mdy', skipDuplicates: true, busy: false, result: null, error: '' };
+
+  function openImportModal() {
+    Object.assign(importState, { file: null, preview: null, mapping: null, dateOrder: 'mdy', skipDuplicates: true, busy: false, result: null, error: '' });
+    renderImportModal();
+    showModal('import-modal');
+  }
+
+  function importRequest(mode) {
+    const fd = new FormData();
+    fd.append('file', importState.file);
+    fd.append('mode', mode);
+    fd.append('dateOrder', importState.dateOrder);
+    fd.append('skipDuplicates', String(importState.skipDuplicates));
+    if (importState.mapping) fd.append('mapping', JSON.stringify(importState.mapping));
+    return api('/api/admin/import/applicants', { method: 'POST', body: fd });
+  }
+
+  async function importPreview() {
+    importState.busy = true;
+    importState.error = '';
+    renderImportModal();
+    try {
+      const p = await importRequest('preview');
+      importState.preview = p;
+      if (!importState.mapping) importState.mapping = p.mapping;
+    } catch (err) {
+      importState.error = err.message;
+      if (!importState.preview) importState.file = null;
+    } finally {
+      importState.busy = false;
+      renderImportModal();
+    }
+  }
+
+  async function importCommit() {
+    const p = importState.preview;
+    if (!p || !p.ready || p.importable < 1) return;
+    if (!confirm(`ยืนยันนำเข้า ${p.importable} ใบสมัคร?\nการนำเข้าย้อนกลับเป็นชุดเดียวไม่ได้ (ลบได้ทีละใบสมัครในตาราง)`)) return;
+    importState.busy = true;
+    importState.error = '';
+    renderImportModal();
+    try {
+      importState.result = await importRequest('commit');
+      await loadAdminApplications();
+    } catch (err) {
+      importState.error = err.message;
+    } finally {
+      importState.busy = false;
+      renderImportModal();
+    }
+  }
+
+  function csvCell(v) {
+    const t = v === null || v === undefined ? '' : String(v);
+    return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+
+  function downloadSkippedRows() {
+    const p = importState.preview;
+    if (!p || !p.errorRows.length) return;
+    const lines = [['บรรทัดในไฟล์', 'เหตุผลที่ข้าม'].concat(p.headers).map(csvCell).join(',')];
+    p.errorRows.forEach((r) => lines.push([r.line, r.reason].concat(r.cells).map(csvCell).join(',')));
+    const blob = new Blob(['﻿' + lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'แถวที่ข้ามตอนนำเข้า.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function renderImportModal() {
+    const body = document.getElementById('import-body');
+    const st = importState;
+    const err = st.error ? `<div class="form-msg error" style="margin-top:.4rem;">${esc(st.error)}</div>` : '';
+    if (st.result) {
+      const r = st.result;
+      body.innerHTML = `
+        <div class="form-msg success">นำเข้าสำเร็จ ${r.inserted} ใบสมัคร (สร้างหมายเหตุ ${r.notesCreated} รายการ)</div>
+        <p class="hint" style="margin-top:.6rem;">ข้ามเพราะซ้ำ ${r.skippedDuplicates} · ข้ามเพราะข้อมูลไม่ครบ ${r.skippedErrors}</p>
+        <div class="modal-actions"><button type="button" class="btn btn-primary" data-action="import-close">ปิด</button></div>`;
+      return;
+    }
+    if (!st.preview) {
+      body.innerHTML = `
+        <p class="hint">เลือกไฟล์ .csv (เช่น ส่งออกจาก Google Sheets: ไฟล์ &gt; ดาวน์โหลด &gt; ค่าที่คั่นด้วยจุลภาค .csv) ระบบจะจับคู่คอลัมน์ให้อัตโนมัติและให้ตรวจก่อนนำเข้าจริง</p>
+        <div class="import-note">นำเข้าได้: ข้อมูลผู้สมัคร สถานะ วันที่สมัคร และหมายเหตุ HR (เก็บเป็นหมายเหตุโทรสกรีน)<br>
+        นำเข้าไม่ได้: ไฟล์เรซูเม่/รูปถ่าย (ถ้ามีลิงก์เรซูเม่ ระบบเก็บลิงก์ไว้ในหมายเหตุ) · ใบสมัครที่นำเข้าจะไม่มีบันทึกการยินยอม PDPA ในระบบนี้ เพราะความยินยอมเก็บไว้กับฟอร์มเดิม</div>
+        <div class="field" style="margin-top:.8rem;"><label for="import-file">ไฟล์ CSV (ไม่เกิน 5 MB / 5,000 แถวต่อครั้ง)</label><input type="file" id="import-file" accept=".csv,text/csv"></div>
+        ${st.busy ? '<p class="hint" style="margin-top:.6rem;">กำลังอ่านไฟล์…</p>' : ''}
+        ${err}
+        <div class="modal-actions"><button type="button" class="btn btn-ghost" data-action="import-close">ปิด</button></div>`;
+      return;
+    }
+    const p = st.preview;
+    const colOpts = (sel) => ['<option value="">— ไม่นำเข้า —</option>']
+      .concat(p.headers.map((h, i) => `<option value="${i}" ${sel === i ? 'selected' : ''}>${i + 1}. ${esc(h || '(ไม่มีชื่อคอลัมน์)')}</option>`)).join('');
+    const mapGrid = p.fields.map((f) => `
+      <div class="field"><label for="imp-f-${esc(f.key)}">${esc(f.label)}${f.required ? ' <span class="required">*</span>' : ''}</label>
+        <select id="imp-f-${esc(f.key)}" data-import-field="${esc(f.key)}">${colOpts(st.mapping ? st.mapping[f.key] : null)}</select></div>`).join('');
+    const warn = [];
+    if (p.warnings.phoneFixed) warn.push(`เติมเลข 0 หน้าเบอร์โทร ${p.warnings.phoneFixed} รายการ (ชีตมักตัด 0 ตัวแรกทิ้ง)`);
+    if (p.warnings.badBirth) warn.push(`วันเกิดอ่านไม่ได้หรือไม่สมเหตุสมผล ${p.warnings.badBirth} รายการ (นำเข้าโดยเว้นวันเกิดว่าง)`);
+    if (p.warnings.badDate) warn.push(`วันที่สมัครอ่านไม่ได้ ${p.warnings.badDate} รายการ (ใช้เวลาที่นำเข้าแทน)`);
+    p.unknownStatuses.forEach((u) => warn.push(`สถานะ “${esc(u.status)}” (${u.count} รายการ) ไม่ตรงกับสถานะในระบบ → ใช้ “ใหม่” และเก็บสถานะเดิมไว้ในหมายเหตุ`));
+    const unmatched = p.unmatchedPositions.length
+      ? `<p class="import-h4">ตำแหน่งที่ไม่ตรงกับตำแหน่งงานในระบบ</p>
+         <p class="hint">จะบันทึกชื่อตำแหน่งตามไฟล์ แต่ไม่ผูกกับตำแหน่งงานในระบบ (แก้ภายหลังได้ที่ปุ่มแก้ไขผู้สมัคร)</p>
+         <ul class="import-warn">${p.unmatchedPositions.map((u) => `<li>${esc(u.title)} (${u.count})</li>`).join('')}</ul>` : '';
+    const sample = p.sample.length ? `
+      <p class="import-h4">ตัวอย่าง ${p.sample.length} รายการแรกที่จะนำเข้า</p>
+      <div class="import-sample"><table><thead><tr><th>บรรทัด</th><th>ชื่อ</th><th>เบอร์</th><th>ตำแหน่ง</th><th>จังหวัด</th><th>สถานะ</th><th>วันที่สมัคร</th><th>หมายเหตุ</th></tr></thead><tbody>
+      ${p.sample.map((r) => `<tr><td>${r.line}</td><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.jobTitle)} ${r.matchedJob ? '✓' : ''}</td><td>${esc(r.province || '-')}</td><td>${esc(r.status)}</td><td>${esc(thDate(r.submittedDate) || '-')}</td><td>${r.noteCount || '-'}</td></tr>`).join('')}
+      </tbody></table></div>` : '';
+    const skipped = p.errorCount ? `
+      <p class="import-h4">แถวที่ข้าม (ข้อมูลไม่ครบ) ${p.errorCount} แถว</p>
+      <ul class="import-warn">${p.errorRows.slice(0, 8).map((r) => `<li>บรรทัด ${r.line}: ${esc(r.reason)}</li>`).join('')}${p.errorCount > 8 ? '<li>…</li>' : ''}</ul>
+      <button type="button" class="btn btn-ghost btn-sm" data-action="import-skipped">${icon('download')} ดาวน์โหลดแถวที่ข้าม (CSV) เพื่อแก้แล้วนำเข้าใหม่</button>` : '';
+    body.innerHTML = `
+      <p class="hint">ไฟล์: <strong>${esc(st.file ? st.file.name : '')}</strong> · ${p.totalRows} แถวข้อมูล · <button type="button" class="btn btn-ghost btn-sm" data-action="import-reset">เลือกไฟล์อื่น</button></p>
+      ${err}
+      <p class="import-h4">1) จับคู่คอลัมน์ (ปรับได้ถ้าระบบเดาผิด)</p>
+      <div class="import-grid">${mapGrid}</div>
+      <div class="import-grid">
+        <div class="field"><label for="import-date-order">รูปแบบวันที่ในไฟล์</label>
+          <select id="import-date-order"><option value="mdy" ${st.dateOrder === 'mdy' ? 'selected' : ''}>เดือน/วัน/ปี (เช่น 3/31/2026 — ชีต Google ภาษาอังกฤษ)</option><option value="dmy" ${st.dateOrder === 'dmy' ? 'selected' : ''}>วัน/เดือน/ปี (เช่น 31/3/2026)</option></select></div>
+        <label class="modal-check" style="margin-top:1.4rem;"><input type="checkbox" id="import-skip-dup" ${st.skipDuplicates ? 'checked' : ''}><span>ข้ามรายการที่ซ้ำกับในระบบ (เบอร์เดียวกัน + ตำแหน่งเดียวกัน + วันที่สมัครเดียวกัน)</span></label>
+      </div>
+      <p class="import-h4">2) ตรวจผลก่อนนำเข้า</p>
+      ${p.ready ? `
+      <div class="import-stats">
+        <div class="stat-card"><div><strong>${p.importable}</strong><span>นำเข้าได้</span></div></div>
+        <div class="stat-card"><div><strong>${p.duplicates}</strong><span>ซ้ำ${st.skipDuplicates ? ' (จะข้าม)' : ''}</span></div></div>
+        <div class="stat-card"><div><strong>${p.errorCount}</strong><span>ข้าม (ข้อมูลไม่ครบ)</span></div></div>
+      </div>
+      ${warn.length ? `<ul class="import-warn">${warn.map((w) => `<li>${w}</li>`).join('')}</ul>` : ''}
+      ${unmatched}${sample}${skipped}` : `<div class="form-msg error">ยังไม่ได้เลือกคอลัมน์ที่จำเป็น: ${esc(p.missing.join(', '))}</div>`}
+      <div class="import-note">ใบสมัครที่นำเข้าจะไม่มีไฟล์แนบและไม่มีบันทึกการยินยอม PDPA ในระบบนี้ · การนำเข้าบันทึกเป็นชุดเดียว (ถ้าผิดพลาดจะไม่มีอะไรถูกบันทึก)</div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-action="import-close">ปิด</button>
+        <button type="button" class="btn btn-primary" data-action="import-run" ${st.busy || !p.ready || p.importable < 1 ? 'disabled' : ''}>${st.busy ? 'กำลังทำงาน…' : `นำเข้า ${p.ready ? p.importable : 0} ใบสมัคร`}</button>
+      </div>`;
   }
 
   async function handleAppStatusChange(e) {
@@ -1624,6 +1883,23 @@
       handleAppDelete(actionEl.dataset.id);
     } else if (action === 'app-edit') {
       openAppEditModal(state.admin.applications.find((x) => x.id === actionEl.dataset.id));
+    } else if (action === 'app-notes') {
+      openNotesModal(state.admin.applications.find((x) => x.id === actionEl.dataset.id));
+    } else if (action === 'notes-close') {
+      hideModal('notes-modal');
+    } else if (action === 'note-delete') {
+      handleNoteDelete(actionEl.dataset.id);
+    } else if (action === 'import-open') {
+      openImportModal();
+    } else if (action === 'import-close') {
+      hideModal('import-modal');
+    } else if (action === 'import-reset') {
+      Object.assign(importState, { file: null, preview: null, mapping: null, error: '' });
+      renderImportModal();
+    } else if (action === 'import-run') {
+      importCommit();
+    } else if (action === 'import-skipped') {
+      downloadSkippedRows();
     } else if (action === 'app-edit-cancel') {
       hideModal('app-edit-modal');
     } else if (action === 'user-new') {
@@ -1675,6 +1951,23 @@
     if (e.target.dataset && e.target.dataset.action === 'app-status') {
       handleAppStatusChange(e);
     }
+    // CSV import modal
+    if (e.target.id === 'import-file') {
+      importState.file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+      importState.preview = null;
+      importState.mapping = null;
+      if (importState.file) importPreview();
+    } else if (e.target.dataset && e.target.dataset.importField) {
+      const v = e.target.value;
+      importState.mapping[e.target.dataset.importField] = v === '' ? null : Number(v);
+      importPreview();
+    } else if (e.target.id === 'import-date-order') {
+      importState.dateOrder = e.target.value;
+      importPreview();
+    } else if (e.target.id === 'import-skip-dup') {
+      importState.skipDuplicates = e.target.checked;
+      importPreview();
+    }
     // conditional fields on the application form
     if (e.target.id === 'apply-title') {
       document.getElementById('apply-title-other-wrap').hidden = e.target.value !== 'อื่นๆ';
@@ -1701,6 +1994,7 @@
   document.addEventListener('submit', (e) => {
     if (e.target.id === 'apply-form') handleApplySubmit(e);
     else if (e.target.id === 'admin-login-form') handleAdminLogin(e);
+    else if (e.target.id === 'note-form') handleNoteSubmit(e);
   });
 
   document.getElementById('job-form').addEventListener('submit', handleJobFormSubmit);

@@ -148,3 +148,17 @@ CREATE TABLE IF NOT EXISTS admin_users (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS admin_users_email_key ON admin_users (lower(email));
+
+-- HR screening notes per application: the date HR called the applicant, who wrote
+-- the note (name is stored as a snapshot so it survives account renames/deletes),
+-- and the note text. Removed with the application.
+CREATE TABLE IF NOT EXISTS application_notes (
+  id             TEXT PRIMARY KEY,
+  application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+  call_date      DATE NOT NULL,
+  note           TEXT NOT NULL,
+  author_id      TEXT,
+  author_name    TEXT NOT NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_application_notes_app ON application_notes(application_id, call_date DESC, created_at DESC);

@@ -36,7 +36,7 @@ function parseBirthDate(v) {
   return v;
 }
 
-const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา', 'ไม่สนใจงาน', 'Blacklist'];
+const STATUS_OPTIONS = ['ใหม่', 'ติดต่อแล้ว', 'ไม่รับสาย', 'ติดต่อไม่ได้', 'นัดสัมภาษณ์', 'รับเข้าทำงาน', 'ไม่ผ่านการพิจารณา', 'ไม่สนใจงาน', 'Blacklist'];
 
 // Validates + normalises the applicant-supplied fields. Used by the public form
 // (strict: everything on the form is required) and by the admin "edit on behalf of
@@ -296,11 +296,30 @@ router.get('/api/admin/applications', requireAdmin, async (req, res, next) => {
       `SELECT * FROM applications ${where} ORDER BY submitted_at DESC LIMIT $${i} OFFSET $${i + 1}`,
       values.concat([limit, offset])
     );
+    // HR screening notes: the newest note + how many notes each application has.
+    const noteInfo = {};
+    const ids = dataRes.rows.map((r) => r.id);
+    if (ids.length > 0) {
+      const { rows: nrows } = await pool.query(
+        `SELECT DISTINCT ON (n.application_id) n.application_id, n.call_date, n.author_name, n.note,
+                (SELECT COUNT(*) FROM application_notes c WHERE c.application_id = n.application_id) AS cnt
+           FROM application_notes n
+          WHERE n.application_id = ANY($1)
+          ORDER BY n.application_id, n.call_date DESC, n.created_at DESC`,
+        [ids]
+      );
+      for (const n of nrows) {
+        noteInfo[n.application_id] = {
+          noteCount: parseInt(n.cnt, 10),
+          lastNote: { callDate: n.call_date, authorName: n.author_name, note: n.note },
+        };
+      }
+    }
     res.json({
       total: parseInt(countRes.rows[0].count, 10),
       page: Math.max(parseInt(page, 10) || 1, 1),
       pageSize: limit,
-      applications: dataRes.rows.map((r) => rowToApplication(r)),
+      applications: dataRes.rows.map((r) => Object.assign(rowToApplication(r), noteInfo[r.id] || { noteCount: 0, lastNote: null })),
     });
   } catch (err) { next(err); }
 });
@@ -364,6 +383,98 @@ router.patch('/api/admin/applications/:id', requireAdmin, async (req, res, next)
   } catch (err) { next(err); }
 });
 
+// ---------------------------------------------------------------------------
+// HR screening notes (date of the screening call + note + who wrote it).
+// Any signed-in admin can add or remove notes; the author name is taken from the
+// signed-in account, never from the request body.
+// ---------------------------------------------------------------------------
+const NOTE_MAX = 2000;
+
+function rowToNote(r) {
+  return {
+    id: r.id,
+    applicationId: r.application_id,
+    callDate: r.call_date,
+    note: r.note,
+    authorName: r.author_name,
+    createdAt: r.created_at,
+  };
+}
+
+// Today's date in Thailand (UTC+7) as YYYY-MM-DD.
+function bangkokToday() {
+  return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+function validCallDate(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return false;
+  return y >= 2000 && v <= bangkokToday();
+}
+
+router.get('/api/admin/applications/:id/notes', requireAdmin, async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM application_notes WHERE application_id = $1 ORDER BY call_date DESC, created_at DESC',
+      [req.params.id]
+    );
+    res.json(rows.map(rowToNote));
+  } catch (err) { next(err); }
+});
+
+// Body: { note, callDate? (default: today), status? (also move the application to this status) }
+router.post('/api/admin/applications/:id/notes', requireAdmin, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const note = String(b.note || '').trim();
+    const callDate = b.callDate ? String(b.callDate).trim() : bangkokToday();
+    const newStatus = b.status ? String(b.status) : '';
+    const errors = [];
+    if (!note) errors.push('กรุณากรอกหมายเหตุ');
+    if (note.length > NOTE_MAX) errors.push(`หมายเหตุยาวเกินไป (ไม่เกิน ${NOTE_MAX} ตัวอักษร)`);
+    if (!validCallDate(callDate)) errors.push('วันที่โทรสกรีนไม่ถูกต้อง (เลือกวันนี้หรือย้อนหลังเท่านั้น)');
+    if (newStatus && !STATUS_OPTIONS.includes(newStatus)) errors.push('สถานะไม่ถูกต้อง');
+    if (errors.length > 0) return res.status(400).json({ error: 'validation', message: errors.join(' / '), errors });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query('SELECT status FROM applications WHERE id = $1 FOR UPDATE', [req.params.id]);
+      if (found.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'not_found', message: 'ไม่พบใบสมัครนี้ (อาจถูกลบไปแล้ว)' });
+      }
+      const ins = await client.query(
+        `INSERT INTO application_notes (id, application_id, call_date, note, author_id, author_name)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [uid(), req.params.id, callDate, note, String(req.admin.id), req.admin.name || 'แอดมิน']
+      );
+      let statusChanged = false;
+      if (newStatus && newStatus !== found.rows[0].status) {
+        await client.query('UPDATE applications SET status = $1, updated_at = now() WHERE id = $2', [newStatus, req.params.id]);
+        statusChanged = true;
+      }
+      await client.query('COMMIT');
+      res.status(201).json({ note: rowToNote(ins.rows[0]), statusChanged });
+    } catch (txErr) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) { next(err); }
+});
+
+router.delete('/api/admin/applications/:id/notes/:noteId', requireAdmin, async (req, res, next) => {
+  try {
+    await pool.query('DELETE FROM application_notes WHERE id = $1 AND application_id = $2', [req.params.noteId, req.params.id]);
+    res.status(204).end();
+  } catch (err) { next(err); }
+});
+
 router.delete('/api/admin/applications/:id', requireAdmin, async (req, res, next) => {
   try {
     await pool.query('DELETE FROM applications WHERE id = $1', [req.params.id]);
@@ -406,7 +517,14 @@ router.get('/api/admin/applications/:id/photo', requireAdmin, (req, res, next) =
 router.get('/api/admin/export/applicants.csv', requireAdmin, async (req, res, next) => {
   try {
     const { rows } = await pool.query('SELECT * FROM applications ORDER BY submitted_at DESC');
-    const csv = toCsv(rows.map((r) => rowToApplication(r)), [
+    const { rows: noteRows } = await pool.query(
+      `SELECT application_id,
+              string_agg(to_char(call_date, 'YYYY-MM-DD') || ' - ' || author_name || ': ' || note, E'\n' ORDER BY call_date, created_at) AS notes
+         FROM application_notes GROUP BY application_id`
+    );
+    const notesById = {};
+    for (const n of noteRows) notesById[n.application_id] = n.notes;
+    const csv = toCsv(rows.map((r) => Object.assign(rowToApplication(r), { hrNotes: notesById[r.id] || '' })), [
       { label: 'submittedAt', value: (a) => (a.submittedAt ? new Date(a.submittedAt).toISOString() : '') },
       { label: 'name', value: 'name' },
       { label: 'jobTitle', value: 'jobTitle' },
@@ -430,6 +548,7 @@ router.get('/api/admin/export/applicants.csv', requireAdmin, async (req, res, ne
       { label: 'availability(legacy)', value: (a) => (a.availability || []).join(', ') },
       { label: 'experience', value: 'experience' },
       { label: 'status', value: 'status' },
+      { label: 'hrNotes', value: 'hrNotes' },
       { label: 'hasResume', value: (a) => (a.hasResume ? 'TRUE' : 'FALSE') },
       { label: 'hasPhoto', value: (a) => (a.hasPhoto ? 'TRUE' : 'FALSE') },
     ]);
